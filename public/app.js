@@ -24,8 +24,10 @@ function RadarOverlay(options) {
     this.setMap(options.map || null);
 }
 
-// Naver Maps CustomOverlay 상속
-if (typeof naver !== 'undefined' && naver.maps) {
+// Naver Maps CustomOverlay 상속을 위한 초기화 함수
+function setupRadarOverlayInheritance() {
+    if (typeof naver === 'undefined' || !naver.maps) return;
+
     RadarOverlay.prototype = new naver.maps.CustomOverlay();
     RadarOverlay.prototype.constructor = RadarOverlay;
 
@@ -105,7 +107,10 @@ async function initApp() {
         // 2. Load Naver Maps Script
         await loadNaverMapsScript(config.mapsClientId);
 
-        // 3. Initialize InfoWindow after Maps API is loaded
+        // 3. Setup Radar Overlay Inheritance after API is loaded
+        setupRadarOverlayInheritance();
+
+        // 4. Initialize InfoWindow after Maps API is loaded
         infoWindow = new naver.maps.InfoWindow({ anchorSkew: true });
 
         // 4. Geolocation API를 사용하여 현재 위치 수신 시도
