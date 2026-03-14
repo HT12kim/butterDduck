@@ -1,8 +1,8 @@
 :root {
-    --primary: #FFD93D;
-    --primary-soft: #FFF2AF;
-    --accent: #FF8B13;
-    --bg-color: #FFFDF9;
+    --primary: #ffd93d;
+    --primary-soft: #fff2af;
+    --accent: #ff8b13;
+    --bg-color: #fffdf9;
     --card-bg: #ffffff;
     --text-main: #444444;
     --text-muted: #888888;
@@ -50,7 +50,7 @@ header {
 
 .logo-emoji {
     font-size: 2rem;
-    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.1));
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.1));
 }
 
 .title-group h1 {
@@ -88,7 +88,7 @@ main {
     display: flex;
     flex-direction: column;
     z-index: 10;
-    box-shadow: -10px 0 30px rgba(0,0,0,0.03);
+    box-shadow: -10px 0 30px rgba(0, 0, 0, 0.03);
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -179,7 +179,7 @@ main {
     border: none;
     padding: 0.8rem 1.5rem;
     border-radius: 30px;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
     font-family: inherit;
     font-weight: 600;
     display: flex;
@@ -208,7 +208,7 @@ main {
     background: white;
     border: none;
     border-radius: 16px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -232,7 +232,7 @@ main {
 
 #my-location-btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
 }
 
 #my-location-btn:active {
@@ -244,20 +244,29 @@ main {
     position: absolute;
     border-radius: 50%;
     pointer-events: none;
-    z-index: 0;
-    /* 은은한 파란색 레이더 스윕 효과 */
-    background: conic-gradient(
-        from 0deg, 
-        rgba(74, 144, 217, 0.4) 0deg, 
-        rgba(74, 144, 217, 0) 90deg
-    );
+    z-index: 2;
     border: 1px solid rgba(0, 122, 255, 0.2);
+}
+
+.radar-sweep-overlay::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 2px;
+    height: 50%;
+    background: linear-gradient(to bottom, rgba(74, 144, 217, 0.8), transparent);
+    transform-origin: 50% 100%;
     animation: radar-rotate 4s linear infinite;
 }
 
 @keyframes radar-rotate {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 /* Loading Overlay Refinement */
@@ -267,7 +276,7 @@ main {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(255,255,255,0.7);
+    background: rgba(255, 255, 255, 0.7);
     backdrop-filter: blur(10px);
     display: flex;
     flex-direction: column;
@@ -288,9 +297,18 @@ main {
 }
 
 @keyframes pulse-loader {
-    0% { transform: scale(1); opacity: 1; }
-    50% { transform: scale(1.2); opacity: 0.5; }
-    100% { transform: scale(1); opacity: 1; }
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.2);
+        opacity: 0.5;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
 }
 
 /* Custom Marker Styles */
@@ -310,7 +328,7 @@ main {
 .marker-img {
     width: 100%;
     height: 100%;
-    filter: drop-shadow(0 4px 10px rgba(0,0,0,0.15));
+    filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.15));
 }
 
 .like-badge {
@@ -328,15 +346,19 @@ main {
     justify-content: center;
     border-radius: 50%;
     border: 2.5px solid white;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     box-sizing: border-box;
     pointer-events: none;
     animation: badge-pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 @keyframes badge-pop {
-    0% { transform: scale(0); }
-    100% { transform: scale(1); }
+    0% {
+        transform: scale(0);
+    }
+    100% {
+        transform: scale(1);
+    }
 }
 
 .like-badge.bump {
@@ -344,9 +366,15 @@ main {
 }
 
 @keyframes badge-bump {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.4); }
-    100% { transform: scale(1); }
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.4);
+    }
+    100% {
+        transform: scale(1);
+    }
 }
 
 /* RESPONSIVE */
@@ -363,9 +391,15 @@ main {
         padding: 0.75rem 1rem;
     }
 
-    .logo-emoji { font-size: 1.5rem; }
-    .title-group h1 { font-size: 1rem; }
-    .title-group p { display: none; }
+    .logo-emoji {
+        font-size: 1.5rem;
+    }
+    .title-group h1 {
+        font-size: 1rem;
+    }
+    .title-group p {
+        display: none;
+    }
 
     #info-panel {
         position: absolute;
@@ -375,7 +409,7 @@ main {
         height: 70vh;
         border-radius: var(--radius-lg) var(--radius-lg) 0 0;
         transform: translateY(100%); /* Start closed */
-        box-shadow: 0 -10px 30px rgba(0,0,0,0.1);
+        box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.1);
     }
 
     #info-panel.open {
