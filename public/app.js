@@ -10,7 +10,60 @@ const DEFAULT_LNG = 126.9706;
 
 let currentLat = 37.5665; // 기본값 (서울 시청)
 let currentLng = 126.9780;
-let storeLikes = {}; // 전역 변수 선언 누락 수정
+let storeLikes = {}; 
+let radarOverlay;
+
+/**
+ * Radar Overlay Class
+ * 내 위치를 중심으로 회전하는 레이더 효과를 구현하는 커스텀 오버레이
+ */
+function RadarOverlay(options) {
+    this._center = options.center;
+    this._radius = options.radius; // meters
+    this._element = null;
+    this.setMap(options.map || null);
+}
+
+// Naver Maps CustomOverlay 상속
+if (typeof naver !== 'undefined' && naver.maps) {
+    RadarOverlay.prototype = new naver.maps.CustomOverlay();
+    RadarOverlay.prototype.constructor = RadarOverlay;
+
+    RadarOverlay.prototype.onAdd = function() {
+        const div = document.createElement('div');
+        div.className = 'radar-sweep-overlay';
+        this._element = div;
+        this.getPanes().overlayLayer.appendChild(div);
+    };
+
+    RadarOverlay.prototype.draw = function() {
+        if (!this.getMap() || !this._element) return;
+        
+        const projection = this.getMap().getProjection();
+        const centerPos = projection.fromCoordToOffset(this._center);
+        
+        // 5km 반경을 픽셀 거리로 변환
+        const scale = this.getMap().getZoom();
+        const coordAtRadius = new naver.maps.LatLng(
+            this._center.lat(),
+            this._center.lng() + (this._radius / 111320) // 경도 1도당 약 111.32km 기준 근사치
+        );
+        const radiusPos = projection.fromCoordToOffset(coordAtRadius);
+        const pixelRadius = Math.abs(radiusPos.x - centerPos.x);
+
+        this._element.style.left = (centerPos.x - pixelRadius) + 'px';
+        this._element.style.top = (centerPos.y - pixelRadius) + 'px';
+        this._element.style.width = (pixelRadius * 2) + 'px';
+        this._element.style.height = (pixelRadius * 2) + 'px';
+    };
+
+    RadarOverlay.prototype.onRemove = function() {
+        if (this._element) {
+            this._element.parentNode.removeChild(this._element);
+            this._element = null;
+        }
+    };
+}
 
 function setupMobileUI() {
     const listBtn = document.getElementById('list-toggle-btn');
@@ -163,18 +216,25 @@ function initializeMap(lat, lng) {
         zIndex: 1000
     });
 
-    // 5km Search Radius Circle
+    // 5km Search Radius Circle (Background)
     new naver.maps.Circle({
         map: map,
         center: new naver.maps.LatLng(lat, lng),
         radius: 5000, // 5km
         fillColor: '#4A90D9',
-        fillOpacity: 0.1,
+        fillOpacity: 0.05,
         strokeColor: '#007AFF',
-        strokeOpacity: 0.3,
-        strokeWeight: 2,
+        strokeOpacity: 0.2,
+        strokeWeight: 1,
         clickable: false,
         zIndex: 1
+    });
+
+    // Radar Sweep Animation Overlay
+    radarOverlay = new RadarOverlay({
+        map: map,
+        center: new naver.maps.LatLng(lat, lng),
+        radius: 5000
     });
 
     document.getElementById('loading-overlay').style.opacity = '0';

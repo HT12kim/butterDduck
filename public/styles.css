@@ -239,6 +239,27 @@ main {
     transform: scale(0.95);
 }
 
+/* Radar Sweep Overlay */
+.radar-sweep-overlay {
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 0;
+    /* 은은한 파란색 레이더 스윕 효과 */
+    background: conic-gradient(
+        from 0deg, 
+        rgba(74, 144, 217, 0.4) 0deg, 
+        rgba(74, 144, 217, 0) 90deg
+    );
+    border: 1px solid rgba(0, 122, 255, 0.2);
+    animation: radar-rotate 4s linear infinite;
+}
+
+@keyframes radar-rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
 /* Loading Overlay Refinement */
 #loading-overlay {
     position: absolute;
