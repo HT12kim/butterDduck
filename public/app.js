@@ -38,7 +38,6 @@ function setupRadarOverlayInheritance() {
     RadarOverlay.prototype.constructor = RadarOverlay;
     console.log('RadarOverlay inheritance set up');
 
-
     RadarOverlay.prototype.onAdd = function () {
         console.log('RadarOverlay onAdd called');
         if (!this.getMap()) return;
@@ -137,6 +136,7 @@ function setupMobileUI() {
 }
 
 async function initApp() {
+    console.log('initApp started');
     setupMobileUI();
     let initTimeout;
 
@@ -152,8 +152,10 @@ async function initApp() {
 
         // 2. Load Naver Maps Script
         await loadNaverMapsScript(config.mapsClientId);
+        console.log('Naver Maps script loaded');
 
         // 3. Setup Radar Overlay Inheritance after API is loaded
+        console.log('Calling setupRadarOverlayInheritance');
         setupRadarOverlayInheritance();
 
         // 4. Initialize InfoWindow after Maps API is loaded
@@ -215,6 +217,7 @@ function loadNaverMapsScript(clientId) {
 }
 
 function initializeMap(lat, lng) {
+    console.log('initializeMap called with', lat, lng);
     const mapOptions = {
         center: new naver.maps.LatLng(lat, lng),
         zoom: 14,
