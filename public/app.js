@@ -43,11 +43,30 @@ async function initApp() {
         // 3. Initialize InfoWindow after Maps API is loaded
         infoWindow = new naver.maps.InfoWindow({ anchorSkew: true });
 
-        // 4. Use fixed location (전주시 덕진구 틀못1길 15)
-        initializeMap(DEFAULT_LAT, DEFAULT_LNG);
+        // 4. Geolocation API를 사용하여 현재 위치 수신
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    currentLat = position.coords.latitude;
+                    currentLng = position.coords.longitude;
+                    initializeMap(currentLat, currentLng);
+                },
+                (error) => {
+                    console.warn("Geolocation failed or denied. Using default Seoul center.", error);
+                    initializeMap(currentLat, currentLng); // Use default currentLat/Lng
+                },
+                { timeout: 5000 } // 5초 타임아웃
+            );
+        } else {
+            console.warn("Browser doesn't support geolocation.");
+            initializeMap(currentLat, currentLng);
+        }
 
     } catch (error) {
         console.error('Initialization error:', error);
+        // 에러 발생 시에도 로딩 오버레이는 제거 시도
+        const overlay = document.getElementById('loading-overlay');
+        if (overlay) overlay.style.display = 'none';
     }
 }
 
