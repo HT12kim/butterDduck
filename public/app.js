@@ -107,7 +107,7 @@ function initializeMap(lat, lng) {
         center: new naver.maps.LatLng(lat, lng),
         zoom: 14,
         minZoom: 10,
-        mapTypeControl: true,
+        mapTypeControl: false,
         zoomControl: false,
         zoomControlOptions: {
             position: naver.maps.Position.RIGHT_BOTTOM
