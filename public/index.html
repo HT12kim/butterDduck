@@ -96,6 +96,40 @@
                 <div id="map-container">
                     <div id="map" style="width: 100%; height: 100%; min-height: 400px"></div>
 
+                    <!-- Main Map Screen Ad Banner (Bottom Edge) -->
+                    <div
+                        class="map-ad-overlay"
+                        style="
+                            position: absolute;
+                            bottom: 0;
+                            left: 0;
+                            width: 100%;
+                            z-index: 1000;
+                            text-align: center;
+                            pointer-events: none;
+                        "
+                    >
+                        <div
+                            style="
+                                display: inline-block;
+                                background: rgba(255, 255, 255, 0.9);
+                                backdrop-filter: blur(5px);
+                                padding: 5px 0;
+                                width: 100%;
+                                pointer-events: auto;
+                            "
+                        >
+                            <ins
+                                class="kakao_ad_area"
+                                style="display: none"
+                                data-ad-unit="DAN-ZpgEzuNQuMpZxV8R"
+                                data-ad-width="320"
+                                data-ad-height="100"
+                            ></ins>
+                            <script type="text/javascript" src="//t1.daumcdn.net/kas/static/ba.min.js" async></script>
+                        </div>
+                    </div>
+
                     <!-- My Location Button -->
                     <button id="my-location-btn" title="내 위치로 이동">
                         <span class="btn-icon">🎯</span>
@@ -120,17 +154,6 @@
                     </div>
                     <div id="places-list" class="scrollable">
                         <p class="empty-msg">지도를 움직여서 주변을 탐색해보세요.</p>
-                    </div>
-                    <!-- Kakao Ad Area -->
-                    <div class="ad-container" style="text-align: center; margin-top: 10px; padding-bottom: 20px">
-                        <ins
-                            class="kakao_ad_area"
-                            style="display: none"
-                            data-ad-unit="DAN-ZpgEzuNQuMpZxV8R"
-                            data-ad-width="320"
-                            data-ad-height="100"
-                        ></ins>
-                        <script type="text/javascript" src="//t1.daumcdn.net/kas/static/ba.min.js" async></script>
                     </div>
                 </aside>
             </main>
