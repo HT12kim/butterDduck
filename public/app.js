@@ -163,6 +163,20 @@ function initializeMap(lat, lng) {
         zIndex: 1000
     });
 
+    // 10km Search Radius Circle
+    new naver.maps.Circle({
+        map: map,
+        center: new naver.maps.LatLng(lat, lng),
+        radius: 10000, // 10km
+        fillColor: '#FFD93D',
+        fillOpacity: 0.1,
+        strokeColor: '#FF8B13',
+        strokeOpacity: 0.3,
+        strokeWeight: 2,
+        clickable: false,
+        zIndex: 1
+    });
+
     document.getElementById('loading-overlay').style.opacity = '0';
     setTimeout(() => {
         document.getElementById('loading-overlay').style.display = 'none';
