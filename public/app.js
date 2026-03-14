@@ -12,6 +12,20 @@ let currentLat = 37.5665; // 기본값 (서울 시청)
 let currentLng = 126.9780;
 let storeLikes = {}; // 전역 변수 선언 누락 수정
 
+function setupMobileUI() {
+    const listBtn = document.getElementById('list-toggle-btn');
+    const infoPanel = document.getElementById('info-panel');
+    
+    if (listBtn) {
+        listBtn.onclick = () => {
+            infoPanel.classList.toggle('open');
+            listBtn.innerHTML = infoPanel.classList.contains('open') ? 
+                '<span class="btn-icon">🗺️</span> 지도보기' : 
+                '<span class="btn-icon">📋</span> 목록보기';
+        };
+    }
+}
+
 async function initApp() {
     setupMobileUI();
     let initTimeout;
