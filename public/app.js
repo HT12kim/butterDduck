@@ -24,6 +24,15 @@ function setupMobileUI() {
                 '<span class="btn-icon">📋</span> 목록보기';
         };
     }
+
+    const myLocBtn = document.getElementById('my-location-btn');
+    if (myLocBtn) {
+        myLocBtn.onclick = () => {
+            if (map) {
+                map.panTo(new naver.maps.LatLng(currentLat, currentLng));
+            }
+        };
+    }
 }
 
 async function initApp() {
