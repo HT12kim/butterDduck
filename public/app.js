@@ -9,8 +9,8 @@ const DEFAULT_LNG = 126.9706;
 */
 
 let currentLat = 37.5665; // 기본값 (서울 시청)
-let currentLng = 126.9780;
-let storeLikes = {}; 
+let currentLng = 126.978;
+let storeLikes = {};
 let radarOverlay;
 
 /**
@@ -32,42 +32,68 @@ function setupRadarOverlayInheritance() {
     RadarOverlay.prototype = Object.create(naver.maps.CustomOverlay.prototype);
     RadarOverlay.prototype.constructor = RadarOverlay;
 
-    RadarOverlay.prototype.onAdd = function() {
+    RadarOverlay.prototype.onAdd = function () {
         if (!this.getMap()) return;
-        const div = document.createElement('div');
-        div.className = 'radar-sweep-overlay';
-        this._element = div;
-        this.getPanes().overlayLayer.appendChild(div);
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('class', 'radar-sweep-overlay');
+        svg.style.position = 'absolute';
+        svg.style.pointerEvents = 'none';
+        svg.style.zIndex = '2';
+        this._element = svg;
+        this.getPanes().overlayLayer.appendChild(svg);
+
+        // Add circle for the boundary
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('cx', '50%');
+        circle.setAttribute('cy', '50%');
+        circle.setAttribute('r', '49%');
+        circle.setAttribute('fill', 'none');
+        circle.setAttribute('stroke', 'rgba(0, 122, 255, 0.2)');
+        circle.setAttribute('stroke-width', '1');
+        svg.appendChild(circle);
+
+        // Add sweep line
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', '50%');
+        line.setAttribute('y1', '50%');
+        line.setAttribute('x2', '50%');
+        line.setAttribute('y2', '1%');
+        line.setAttribute('stroke', 'rgba(74, 144, 217, 0.8)');
+        line.setAttribute('stroke-width', '2');
+        line.setAttribute('stroke-linecap', 'round');
+        line.style.animation = 'radar-rotate 4s linear infinite';
+        svg.appendChild(line);
+
+        this._line = line;
     };
 
-    RadarOverlay.prototype.draw = function() {
+    RadarOverlay.prototype.draw = function () {
         if (!this.getMap() || !this._element) return;
-        
+
         const map = this.getMap();
         const projection = map.getProjection();
         if (!projection) return;
-        
+
         const centerPos = projection.fromCoordToOffset(this._center);
-        
+
         // 5km 반경을 픽셀 거리로 변환
         // 경도 1도당 약 111.32km 기준 (위도에 따라 다르지만 5km 정도면 근사치 허용)
-        const latScale = 111320; 
-        const coordAtRadius = new naver.maps.LatLng(
-            this._center.lat(),
-            this._center.lng() + (this._radius / latScale)
-        );
+        const latScale = 111320;
+        const coordAtRadius = new naver.maps.LatLng(this._center.lat(), this._center.lng() + this._radius / latScale);
         const radiusPos = projection.fromCoordToOffset(coordAtRadius);
         const pixelRadius = Math.abs(radiusPos.x - centerPos.x);
 
         if (isNaN(pixelRadius) || pixelRadius <= 0) return;
 
-        this._element.style.left = (centerPos.x - pixelRadius) + 'px';
-        this._element.style.top = (centerPos.y - pixelRadius) + 'px';
-        this._element.style.width = (pixelRadius * 2) + 'px';
-        this._element.style.height = (pixelRadius * 2) + 'px';
+        const size = pixelRadius * 2;
+        this._element.style.left = centerPos.x - pixelRadius + 'px';
+        this._element.style.top = centerPos.y - pixelRadius + 'px';
+        this._element.style.width = size + 'px';
+        this._element.style.height = size + 'px';
+        this._element.setAttribute('viewBox', `0 0 ${size} ${size}`);
     };
 
-    RadarOverlay.prototype.onRemove = function() {
+    RadarOverlay.prototype.onRemove = function () {
         if (this._element && this._element.parentNode) {
             this._element.parentNode.removeChild(this._element);
             this._element = null;
@@ -78,13 +104,13 @@ function setupRadarOverlayInheritance() {
 function setupMobileUI() {
     const listBtn = document.getElementById('list-toggle-btn');
     const infoPanel = document.getElementById('info-panel');
-    
+
     if (listBtn) {
         listBtn.onclick = () => {
             infoPanel.classList.toggle('open');
-            listBtn.innerHTML = infoPanel.classList.contains('open') ? 
-                '<span class="btn-icon">🗺️</span> 지도보기' : 
-                '<span class="btn-icon">📋</span> 목록보기';
+            listBtn.innerHTML = infoPanel.classList.contains('open')
+                ? '<span class="btn-icon">🗺️</span> 지도보기'
+                : '<span class="btn-icon">📋</span> 목록보기';
         };
     }
 
@@ -106,7 +132,7 @@ async function initApp() {
         // 1. Get Client ID from our backend
         const configResponse = await fetch('/api/config');
         const config = await configResponse.json();
-        
+
         if (!config.mapsClientId) {
             alert('Naver Maps Client ID가 설정되지 않았습니다. .env 파일을 확인해주세요.');
             return;
@@ -126,7 +152,7 @@ async function initApp() {
         let isInitialized = false;
         initTimeout = setTimeout(() => {
             if (!isInitialized) {
-                console.warn("Geolocation timed out. Initializing with default location.");
+                console.warn('Geolocation timed out. Initializing with default location.');
                 isInitialized = true;
                 initializeMap(currentLat, currentLng);
             }
@@ -146,7 +172,7 @@ async function initApp() {
                     if (isInitialized) return;
                     isInitialized = true;
                     clearTimeout(initTimeout);
-                    console.warn("Geolocation failed or denied. Using default Seoul center.", error);
+                    console.warn('Geolocation failed or denied. Using default Seoul center.', error);
                     initializeMap(currentLat, currentLng);
                 },
                 { timeout: 5000, enableHighAccuracy: true }
@@ -157,7 +183,6 @@ async function initApp() {
             console.warn("Browser doesn't support geolocation.");
             initializeMap(currentLat, currentLng);
         }
-
     } catch (error) {
         console.error('Initialization error:', error);
         // 에러 발생 시에도 로딩 오버레이는 제거 시도
@@ -185,8 +210,8 @@ function initializeMap(lat, lng) {
         mapTypeControl: false,
         zoomControl: false,
         zoomControlOptions: {
-            position: naver.maps.Position.RIGHT_BOTTOM
-        }
+            position: naver.maps.Position.RIGHT_BOTTOM,
+        },
     };
 
     map = new naver.maps.Map('map', mapOptions);
@@ -223,10 +248,10 @@ function initializeMap(lat, lng) {
         map: map,
         icon: {
             content: myLocationContent,
-            anchor: new naver.maps.Point(22, 22)
+            anchor: new naver.maps.Point(22, 22),
         },
         title: '내 위치',
-        zIndex: 1000
+        zIndex: 1000,
     });
 
     // 5km Search Radius Circle (Background)
@@ -240,7 +265,7 @@ function initializeMap(lat, lng) {
         strokeOpacity: 0.2,
         strokeWeight: 1,
         clickable: false,
-        zIndex: 1
+        zIndex: 1,
     });
 
     // Radar Sweep Animation Overlay (Safe Initialization)
@@ -249,11 +274,11 @@ function initializeMap(lat, lng) {
             radarOverlay = new RadarOverlay({
                 map: map,
                 center: new naver.maps.LatLng(lat, lng),
-                radius: 5000
+                radius: 5000,
             });
         }
     } catch (e) {
-        console.warn("Radar overlay failed to initialize, but map will continue.", e);
+        console.warn('Radar overlay failed to initialize, but map will continue.', e);
     }
 
     // Always hide loading overlay
@@ -280,12 +305,11 @@ function initializeMap(lat, lng) {
 // Haversine 공식으로 두 좌표 사이의 거리(km) 계산
 function getDistanceKm(lat1, lng1, lat2, lng2) {
     const R = 6371; // 지구 반지름 (km)
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLng = ((lng2 - lng1) * Math.PI) / 180;
     const a =
         Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-        Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
@@ -299,11 +323,11 @@ async function searchPlaces(query, lat, lng) {
             // 현재 위치로부터 5km 이내 가게만 필터링
             const RADIUS_KM = 5;
             const filtered = data.items
-                .map(item => {
+                .map((item) => {
                     const dist = getDistanceKm(lat, lng, item.lat, item.lng);
                     return { ...item, distanceKm: dist };
                 })
-                .filter(item => item.distanceKm <= RADIUS_KM)
+                .filter((item) => item.distanceKm <= RADIUS_KM)
                 .sort((a, b) => a.distanceKm - b.distanceKm);
 
             displayPlaces(filtered);
@@ -317,9 +341,9 @@ async function searchPlaces(query, lat, lng) {
 function displayPlaces(items) {
     const listContainer = document.getElementById('places-list');
     const resultCount = document.getElementById('result-count');
-    
+
     resultCount.textContent = items.length;
-    
+
     if (items.length === 0) {
         listContainer.innerHTML = '<p class="empty-msg">검색 결과가 없습니다.</p>';
         return;
@@ -333,7 +357,9 @@ function displayPlaces(items) {
             <span class="category">${item.category}</span>
             <h3>${item.title.replace(/<[^>]*>?/gm, '')}</h3>
             <p class="address">${item.roadAddress || item.address}</p>
-            <p class="distance">📍 ${item.distanceKm < 1 ? (item.distanceKm * 1000).toFixed(0) + 'm' : item.distanceKm.toFixed(2) + 'km'} (내 위치 기준)</p>
+            <p class="distance">📍 ${
+                item.distanceKm < 1 ? (item.distanceKm * 1000).toFixed(0) + 'm' : item.distanceKm.toFixed(2) + 'km'
+            } (내 위치 기준)</p>
         `;
         div.onclick = () => {
             if (!map || typeof naver === 'undefined') return;
@@ -350,7 +376,7 @@ function getStoreId(item) {
     const str = (item.title + item.address).replace(/\s+/g, '');
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
-        hash = ((hash << 5) - hash) + str.charCodeAt(i);
+        hash = (hash << 5) - hash + str.charCodeAt(i);
         hash |= 0;
     }
     return 'store_' + Math.abs(hash);
@@ -376,10 +402,10 @@ async function handleLike(storeId, badgeEl) {
         const res = await fetch('/api/likes', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: storeId })
+            body: JSON.stringify({ id: storeId }),
         });
         const data = await res.json();
-        
+
         // Update local state and UI
         storeLikes[storeId] = data.count;
         if (badgeEl) {
@@ -387,7 +413,7 @@ async function handleLike(storeId, badgeEl) {
             badgeEl.classList.add('bump');
             setTimeout(() => badgeEl.classList.remove('bump'), 400);
         }
-        
+
         // Save to localStorage to prevent multiple likes
         likedStores[storeId] = true;
         localStorage.setItem('liked_stores', JSON.stringify(likedStores));
@@ -397,7 +423,7 @@ async function handleLike(storeId, badgeEl) {
 }
 
 async function updateMarkers(items) {
-    markers.forEach(m => m.setMap(null));
+    markers.forEach((m) => m.setMap(null));
     markers = [];
 
     await fetchLikes();
@@ -420,8 +446,8 @@ async function updateMarkers(items) {
             icon: {
                 content: markerContent,
                 size: new naver.maps.Size(44, 44),
-                anchor: new naver.maps.Point(22, 22)
-            }
+                anchor: new naver.maps.Point(22, 22),
+            },
         });
 
         // Add both InfoWindow logic and Like logic
@@ -433,7 +459,8 @@ async function updateMarkers(items) {
                 // If badge doesn't exist yet but it's the first like, we need to create it
                 if (!badgeEl) {
                     const container = document.getElementById(`marker-${storeId}`);
-                    if (container) { // Ensure container exists before appending
+                    if (container) {
+                        // Ensure container exists before appending
                         badgeEl = document.createElement('div');
                         badgeEl.className = 'like-badge';
                         badgeEl.innerText = '0'; // Will be updated by handleLike
@@ -455,7 +482,9 @@ function showInfoWindow(marker, item) {
         <div style="padding:15px; min-width:200px; font-family: 'Noto Sans KR', sans-serif;">
             <h4 style="margin:0 0 5px 0; color:#333;">${item.title.replace(/<[^>]*>?/gm, '')}</h4>
             <p style="margin:0; font-size:12px; color:#666;">${item.roadAddress || item.address}</p>
-            <a href="https://search.naver.com/search.naver?query=${encodeURIComponent(item.title.replace(/<[^>]*>?/gm, ''))}" 
+            <a href="https://search.naver.com/search.naver?query=${encodeURIComponent(
+                item.title.replace(/<[^>]*>?/gm, '')
+            )}" 
                target="_blank" 
                style="display:inline-block; margin-top:8px; font-size:12px; color:#ccac00; text-decoration:none; font-weight:bold;">
                상세보기 →

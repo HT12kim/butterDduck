@@ -242,22 +242,8 @@ main {
 /* Radar Sweep Overlay */
 .radar-sweep-overlay {
     position: absolute;
-    border-radius: 50%;
     pointer-events: none;
     z-index: 2;
-    border: 1px solid rgba(0, 122, 255, 0.2);
-}
-
-.radar-sweep-overlay::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 2px;
-    height: 50%;
-    background: linear-gradient(to bottom, rgba(74, 144, 217, 0.8), transparent);
-    transform-origin: 50% 100%;
-    animation: radar-rotate 4s linear infinite;
 }
 
 @keyframes radar-rotate {
