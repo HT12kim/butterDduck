@@ -25,18 +25,18 @@ function RadarOverlay(options) {
     this.setMap(options.map || null);
 }
 
-// Naver Maps CustomOverlay 상속을 위한 초기화 함수
+// Naver Maps OverlayView 상속을 위한 초기화 함수
 function setupRadarOverlayInheritance() {
     console.log('setupRadarOverlayInheritance called');
-    if (typeof naver === 'undefined' || !naver.maps || !naver.maps.CustomOverlay) {
-        console.warn('Naver Maps CustomOverlay not available');
+    if (typeof naver === 'undefined' || !naver.maps || !naver.maps.OverlayView) {
+        console.warn('Naver Maps OverlayView not available');
         return;
     }
 
-    // Object.create를 사용하여 더 정교하게 상속 설정
-    RadarOverlay.prototype = Object.create(naver.maps.CustomOverlay.prototype);
+    // Object.create를 사용하여 상속 설정
+    RadarOverlay.prototype = Object.create(naver.maps.OverlayView.prototype);
     RadarOverlay.prototype.constructor = RadarOverlay;
-    console.log('RadarOverlay inheritance set up');
+    console.log('RadarOverlay inheritance set up with OverlayView');
 
     RadarOverlay.prototype.onAdd = function () {
         console.log('RadarOverlay onAdd called');
