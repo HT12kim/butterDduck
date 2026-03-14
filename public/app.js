@@ -283,23 +283,6 @@ function initializeMap(lat, lng) {
         zIndex: 1,
     });
 
-    // Radar Sweep Animation Overlay (Safe Initialization)
-    try {
-        console.log('Checking RadarOverlay.prototype.draw:', typeof RadarOverlay.prototype.draw);
-        if (typeof RadarOverlay.prototype.draw === 'function') {
-            console.log('Creating RadarOverlay');
-            radarOverlay = new RadarOverlay({
-                map: map,
-                center: new naver.maps.LatLng(lat, lng),
-                radius: 5000,
-            });
-        } else {
-            console.warn('RadarOverlay.prototype.draw is not a function');
-        }
-    } catch (e) {
-        console.warn('Radar overlay failed to initialize, but map will continue.', e);
-    }
-
     // Always hide loading overlay
     const hideOverlay = () => {
         const overlay = document.getElementById('loading-overlay');
