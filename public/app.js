@@ -18,6 +18,7 @@ let radarOverlay;
  * 내 위치를 중심으로 회전하는 레이더 효과를 구현하는 커스텀 오버레이
  */
 function RadarOverlay(options) {
+    console.log('RadarOverlay constructor called');
     this._center = options.center;
     this._radius = options.radius; // meters
     this._element = null;
@@ -26,11 +27,17 @@ function RadarOverlay(options) {
 
 // Naver Maps CustomOverlay 상속을 위한 초기화 함수
 function setupRadarOverlayInheritance() {
-    if (typeof naver === 'undefined' || !naver.maps || !naver.maps.CustomOverlay) return;
+    console.log('setupRadarOverlayInheritance called');
+    if (typeof naver === 'undefined' || !naver.maps || !naver.maps.CustomOverlay) {
+        console.warn('Naver Maps CustomOverlay not available');
+        return;
+    }
 
     // Object.create를 사용하여 더 정교하게 상속 설정
     RadarOverlay.prototype = Object.create(naver.maps.CustomOverlay.prototype);
     RadarOverlay.prototype.constructor = RadarOverlay;
+    console.log('RadarOverlay inheritance set up');
+
 
     RadarOverlay.prototype.onAdd = function () {
         console.log('RadarOverlay onAdd called');
@@ -275,12 +282,16 @@ function initializeMap(lat, lng) {
 
     // Radar Sweep Animation Overlay (Safe Initialization)
     try {
+        console.log('Checking RadarOverlay.prototype.draw:', typeof RadarOverlay.prototype.draw);
         if (typeof RadarOverlay.prototype.draw === 'function') {
+            console.log('Creating RadarOverlay');
             radarOverlay = new RadarOverlay({
                 map: map,
                 center: new naver.maps.LatLng(lat, lng),
                 radius: 5000,
             });
+        } else {
+            console.warn('RadarOverlay.prototype.draw is not a function');
         }
     } catch (e) {
         console.warn('Radar overlay failed to initialize, but map will continue.', e);
