@@ -238,24 +238,6 @@ main {
 #my-location-btn:active {
     transform: scale(0.95);
 }
-
-/* Radar Sweep Overlay */
-.radar-sweep-overlay {
-    position: absolute;
-    pointer-events: none;
-    z-index: 2;
-}
-
-@keyframes radar-rotate {
-    from {
-        transform: rotate(0deg);
-    }
-    to {
-        transform: rotate(360deg);
-    }
-}
-
-/* Loading Overlay Refinement */
 #loading-overlay {
     position: absolute;
     top: 0;

@@ -11,106 +11,6 @@ const DEFAULT_LNG = 126.9706;
 let currentLat = 37.5665; // 기본값 (서울 시청)
 let currentLng = 126.978;
 let storeLikes = {};
-let radarOverlay;
-
-/**
- * Radar Overlay Class
- * 내 위치를 중심으로 회전하는 레이더 효과를 구현하는 커스텀 오버레이
- */
-function RadarOverlay(options) {
-    console.log('RadarOverlay constructor called');
-    this._center = options.center;
-    this._radius = options.radius; // meters
-    this._element = null;
-    this.setMap(options.map || null);
-}
-
-// Naver Maps OverlayView 상속을 위한 초기화 함수
-function setupRadarOverlayInheritance() {
-    console.log('setupRadarOverlayInheritance called');
-    if (typeof naver === 'undefined' || !naver.maps || !naver.maps.OverlayView) {
-        console.warn('Naver Maps OverlayView not available');
-        return;
-    }
-
-    // Object.create를 사용하여 상속 설정
-    RadarOverlay.prototype = Object.create(naver.maps.OverlayView.prototype);
-    RadarOverlay.prototype.constructor = RadarOverlay;
-    console.log('RadarOverlay inheritance set up with OverlayView');
-
-    RadarOverlay.prototype.onAdd = function () {
-        console.log('RadarOverlay onAdd called');
-        if (!this.getMap()) return;
-        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        svg.setAttribute('class', 'radar-sweep-overlay');
-        svg.style.position = 'absolute';
-        svg.style.pointerEvents = 'none';
-        svg.style.zIndex = '2';
-        this._element = svg;
-        this.getPanes().overlayLayer.appendChild(svg);
-
-        // Add circle for the boundary
-        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-        circle.setAttribute('cx', '50');
-        circle.setAttribute('cy', '50');
-        circle.setAttribute('r', '49');
-        circle.setAttribute('fill', 'none');
-        circle.setAttribute('stroke', 'rgba(0, 122, 255, 0.2)');
-        circle.setAttribute('stroke-width', '1');
-        svg.appendChild(circle);
-
-        // Add sweep line
-        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-        line.setAttribute('x1', '50');
-        line.setAttribute('y1', '50');
-        line.setAttribute('x2', '50');
-        line.setAttribute('y2', '1');
-        line.setAttribute('stroke', 'rgba(74, 144, 217, 0.8)');
-        line.setAttribute('stroke-width', '2');
-        line.setAttribute('stroke-linecap', 'round');
-        line.style.animation = 'radar-rotate 4s linear infinite';
-        svg.appendChild(line);
-
-        this._line = line;
-        console.log('RadarOverlay SVG added to map');
-    };
-
-    RadarOverlay.prototype.draw = function () {
-        console.log('RadarOverlay draw called');
-        if (!this.getMap() || !this._element) return;
-
-        const map = this.getMap();
-        const projection = map.getProjection();
-        if (!projection) return;
-
-        const centerPos = projection.fromCoordToOffset(this._center);
-
-        // 5km 반경을 픽셀 거리로 변환
-        // 경도 1도당 약 111.32km 기준 (위도에 따라 다르지만 5km 정도면 근사치 허용)
-        const latScale = 111320;
-        const coordAtRadius = new naver.maps.LatLng(this._center.lat(), this._center.lng() + this._radius / latScale);
-        const radiusPos = projection.fromCoordToOffset(coordAtRadius);
-        const pixelRadius = Math.abs(radiusPos.x - centerPos.x);
-
-        console.log('pixelRadius:', pixelRadius);
-        if (isNaN(pixelRadius) || pixelRadius <= 0) return;
-
-        const size = pixelRadius * 2;
-        this._element.style.left = centerPos.x - pixelRadius + 'px';
-        this._element.style.top = centerPos.y - pixelRadius + 'px';
-        this._element.style.width = size + 'px';
-        this._element.style.height = size + 'px';
-        this._element.setAttribute('viewBox', '0 0 100 100');
-        console.log('RadarOverlay draw completed');
-    };
-
-    RadarOverlay.prototype.onRemove = function () {
-        if (this._element && this._element.parentNode) {
-            this._element.parentNode.removeChild(this._element);
-            this._element = null;
-        }
-    };
-}
 
 function setupMobileUI() {
     const listBtn = document.getElementById('list-toggle-btn');
@@ -153,10 +53,6 @@ async function initApp() {
         // 2. Load Naver Maps Script
         await loadNaverMapsScript(config.mapsClientId);
         console.log('Naver Maps script loaded');
-
-        // 3. Setup Radar Overlay Inheritance after API is loaded
-        console.log('Calling setupRadarOverlayInheritance');
-        setupRadarOverlayInheritance();
 
         // 4. Initialize InfoWindow after Maps API is loaded
         infoWindow = new naver.maps.InfoWindow({ anchorSkew: true });
