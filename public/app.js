@@ -163,14 +163,14 @@ function initializeMap(lat, lng) {
         zIndex: 1000
     });
 
-    // 10km Search Radius Circle
+    // 5km Search Radius Circle
     new naver.maps.Circle({
         map: map,
         center: new naver.maps.LatLng(lat, lng),
-        radius: 10000, // 10km
-        fillColor: '#FFD93D',
+        radius: 5000, // 5km
+        fillColor: '#4A90D9',
         fillOpacity: 0.1,
-        strokeColor: '#FF8B13',
+        strokeColor: '#007AFF',
         strokeOpacity: 0.3,
         strokeWeight: 2,
         clickable: false,
@@ -210,8 +210,8 @@ async function searchPlaces(query, lat, lng) {
         const data = await response.json();
 
         if (data.items) {
-            // 현재 위치로부터 10km 이내 가게만 필터링
-            const RADIUS_KM = 10;
+            // 현재 위치로부터 5km 이내 가게만 필터링
+            const RADIUS_KM = 5;
             const filtered = data.items
                 .map(item => {
                     const dist = getDistanceKm(lat, lng, item.lat, item.lng);
