@@ -33,6 +33,7 @@ function setupRadarOverlayInheritance() {
     RadarOverlay.prototype.constructor = RadarOverlay;
 
     RadarOverlay.prototype.onAdd = function () {
+        console.log('RadarOverlay onAdd called');
         if (!this.getMap()) return;
         const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         svg.setAttribute('class', 'radar-sweep-overlay');
@@ -44,9 +45,9 @@ function setupRadarOverlayInheritance() {
 
         // Add circle for the boundary
         const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-        circle.setAttribute('cx', '50%');
-        circle.setAttribute('cy', '50%');
-        circle.setAttribute('r', '49%');
+        circle.setAttribute('cx', '50');
+        circle.setAttribute('cy', '50');
+        circle.setAttribute('r', '49');
         circle.setAttribute('fill', 'none');
         circle.setAttribute('stroke', 'rgba(0, 122, 255, 0.2)');
         circle.setAttribute('stroke-width', '1');
@@ -54,10 +55,10 @@ function setupRadarOverlayInheritance() {
 
         // Add sweep line
         const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-        line.setAttribute('x1', '50%');
-        line.setAttribute('y1', '50%');
-        line.setAttribute('x2', '50%');
-        line.setAttribute('y2', '1%');
+        line.setAttribute('x1', '50');
+        line.setAttribute('y1', '50');
+        line.setAttribute('x2', '50');
+        line.setAttribute('y2', '1');
         line.setAttribute('stroke', 'rgba(74, 144, 217, 0.8)');
         line.setAttribute('stroke-width', '2');
         line.setAttribute('stroke-linecap', 'round');
@@ -65,9 +66,11 @@ function setupRadarOverlayInheritance() {
         svg.appendChild(line);
 
         this._line = line;
+        console.log('RadarOverlay SVG added to map');
     };
 
     RadarOverlay.prototype.draw = function () {
+        console.log('RadarOverlay draw called');
         if (!this.getMap() || !this._element) return;
 
         const map = this.getMap();
@@ -83,6 +86,7 @@ function setupRadarOverlayInheritance() {
         const radiusPos = projection.fromCoordToOffset(coordAtRadius);
         const pixelRadius = Math.abs(radiusPos.x - centerPos.x);
 
+        console.log('pixelRadius:', pixelRadius);
         if (isNaN(pixelRadius) || pixelRadius <= 0) return;
 
         const size = pixelRadius * 2;
@@ -90,7 +94,8 @@ function setupRadarOverlayInheritance() {
         this._element.style.top = centerPos.y - pixelRadius + 'px';
         this._element.style.width = size + 'px';
         this._element.style.height = size + 'px';
-        this._element.setAttribute('viewBox', `0 0 ${size} ${size}`);
+        this._element.setAttribute('viewBox', '0 0 100 100');
+        console.log('RadarOverlay draw completed');
     };
 
     RadarOverlay.prototype.onRemove = function () {
