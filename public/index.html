@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>버터떡 맛집 지도 - 내 주변 버터떡 카페 찾기 | Butter Tteok Map</title>
+    
+    <!-- SEO Meta Tags (Enhanced) -->
+    <meta name="description" content="전주 한옥마을부터 서울 강남역, 서울역 주변까지! 전국 버터떡 성지를 한눈에 확인하는 버터떡 맛집 지도입니다. 겉바속촉 구운 버터떡, 떡카페, 디저트 순례 필수 코스를 리얼 사용자 '좋아요' 순위로 만나보세요.">
+    <meta name="keywords" content="버터떡, 버터떡맛집, 버터구이떡, 구운떡, 떡카페, 디저트카페, 서울카페추천, 강남맛집, 서울역맛집, 전주맛집, 한옥마을디저트, 떡지순례, 떡순이, 간식추천, 아이들간식, 건강디저트, 인스타감성카페, 빵지순례, 데이트코스추천, 주말나들이, k-dessert, buttery rice cake, seoul cafe tour">
+    <meta name="author" content="Butter Tteok Finder Team">
+    <link rel="canonical" href="http://localhost:3000/">
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="http://localhost:3000/">
+    <meta property="og:title" content="버터떡 맛집 지도 🧈 - 달콤한 버터떡 카페 찾기">
+    <meta property="og:description" content="지금 내 주변 10km 이내의 버터떡 명소를 확인하고 '좋아요'를 눌러보세요!">
+    <meta property="og:image" content="./image.png">
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="http://localhost:3000/">
+    <meta property="twitter:title" content="버터떡 맛집 지도 🧈">
+    <meta property="twitter:description" content="내 주변 버터떡 디저트 전문점 찾기 서비스. 기기당 한 번, 리얼 좋아요 기능 탑재!">
+    <meta property="twitter:image" content="./image.png">
+
+    <!-- Structured Data (JSON-LD) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "버터떡 맛집 지도 (Butter Tteok Map)",
+      "url": "http://localhost:3000",
+      "description": "전국 각지의 버터떡 맛집과 디저트 카페를 추천하고 사용자 리뷰(좋아요)를 공유하는 지도 서비스",
+      "applicationCategory": "LifestyleApplication, MultimediaApplication",
+      "genre": "Dessert, Cafe, Food Map",
+      "keywords": "버터떡, 떡카페, 디저트맛집, 떡지순례, 서울카페, 전주카페, 강남역카페, 서울역카페",
+      "operatingSystem": "Web, Mobile",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "KRW"
+      },
+      "author": {
+        "@type": "Organization",
+        "name": "Butter Tteok Finder"
+      }
+    }
+    </script>
+    
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Noto+Sans+KR:wght@300;400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="app">
+        <header>
+            <div class="header-content">
+                <span class="logo-emoji">🧈</span>
+                <div class="title-group">
+                    <h1>버터떡 맛집 지도</h1>
+                    <p>내 주변의 달콤한 버터떡 카페 찾기</p>
+                </div>
+            </div>
+        </header>
+
+        <main>
+            <div id="map-container">
+                <div id="map"></div>
+                <div id="loading-overlay">
+                    <div class="loader"></div>
+                    <p>달콤한 장소를 찾는 중...</p>
+                </div>
+                <!-- Mobile Floating Button -->
+                <button id="list-toggle-btn" class="mobile-only">
+                    <span class="btn-icon">📋</span> 목록보기
+                </button>
+            </div>
+            
+            <aside id="info-panel">
+                <div class="panel-dragger mobile-only"></div>
+                <div class="panel-header">
+                    <div class="panel-title">
+                        <h2>검색 결과</h2>
+                        <span id="result-count">0</span>
+                    </div>
+                </div>
+                <div id="places-list" class="scrollable">
+                    <p class="empty-msg">지도를 움직여서 주변을 탐색해보세요.</p>
+                </div>
+            </aside>
+        </main>
+    </div>
+
+    <!-- The Script will be loaded dynamically after fetching the Client ID -->
+    <script src="app.js"></script>
+</body>
+</html>
