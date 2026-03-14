@@ -203,19 +203,31 @@ main {
     position: absolute;
     top: 20px;
     right: 20px;
-    width: 44px;
-    height: 44px;
+    width: 64px;
+    height: 64px;
     background: white;
     border: none;
-    border-radius: 12px;
+    border-radius: 16px;
     box-shadow: 0 4px 15px rgba(0,0,0,0.1);
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    font-size: 1.25rem;
+    gap: 4px;
     z-index: 1000;
     cursor: pointer;
     transition: all 0.2s ease;
+}
+
+#my-location-btn .btn-icon {
+    font-size: 1.4rem;
+}
+
+#my-location-btn .btn-text {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-main);
+    white-space: nowrap;
 }
 
 #my-location-btn:hover {
