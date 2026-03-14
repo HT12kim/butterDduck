@@ -108,7 +108,7 @@ function initializeMap(lat, lng) {
         zoom: 14,
         minZoom: 10,
         mapTypeControl: true,
-        zoomControl: true,
+        zoomControl: false,
         zoomControlOptions: {
             position: naver.maps.Position.RIGHT_BOTTOM
         }
