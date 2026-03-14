@@ -26,12 +26,14 @@ function RadarOverlay(options) {
 
 // Naver Maps CustomOverlay 상속을 위한 초기화 함수
 function setupRadarOverlayInheritance() {
-    if (typeof naver === 'undefined' || !naver.maps) return;
+    if (typeof naver === 'undefined' || !naver.maps || !naver.maps.CustomOverlay) return;
 
-    RadarOverlay.prototype = new naver.maps.CustomOverlay();
+    // Object.create를 사용하여 더 정교하게 상속 설정
+    RadarOverlay.prototype = Object.create(naver.maps.CustomOverlay.prototype);
     RadarOverlay.prototype.constructor = RadarOverlay;
 
     RadarOverlay.prototype.onAdd = function() {
+        if (!this.getMap()) return;
         const div = document.createElement('div');
         div.className = 'radar-sweep-overlay';
         this._element = div;
@@ -41,17 +43,23 @@ function setupRadarOverlayInheritance() {
     RadarOverlay.prototype.draw = function() {
         if (!this.getMap() || !this._element) return;
         
-        const projection = this.getMap().getProjection();
+        const map = this.getMap();
+        const projection = map.getProjection();
+        if (!projection) return;
+        
         const centerPos = projection.fromCoordToOffset(this._center);
         
         // 5km 반경을 픽셀 거리로 변환
-        const scale = this.getMap().getZoom();
+        // 경도 1도당 약 111.32km 기준 (위도에 따라 다르지만 5km 정도면 근사치 허용)
+        const latScale = 111320; 
         const coordAtRadius = new naver.maps.LatLng(
             this._center.lat(),
-            this._center.lng() + (this._radius / 111320) // 경도 1도당 약 111.32km 기준 근사치
+            this._center.lng() + (this._radius / latScale)
         );
         const radiusPos = projection.fromCoordToOffset(coordAtRadius);
         const pixelRadius = Math.abs(radiusPos.x - centerPos.x);
+
+        if (isNaN(pixelRadius) || pixelRadius <= 0) return;
 
         this._element.style.left = (centerPos.x - pixelRadius) + 'px';
         this._element.style.top = (centerPos.y - pixelRadius) + 'px';
@@ -60,7 +68,7 @@ function setupRadarOverlayInheritance() {
     };
 
     RadarOverlay.prototype.onRemove = function() {
-        if (this._element) {
+        if (this._element && this._element.parentNode) {
             this._element.parentNode.removeChild(this._element);
             this._element = null;
         }
@@ -235,17 +243,30 @@ function initializeMap(lat, lng) {
         zIndex: 1
     });
 
-    // Radar Sweep Animation Overlay
-    radarOverlay = new RadarOverlay({
-        map: map,
-        center: new naver.maps.LatLng(lat, lng),
-        radius: 5000
-    });
+    // Radar Sweep Animation Overlay (Safe Initialization)
+    try {
+        if (typeof RadarOverlay.prototype.draw === 'function') {
+            radarOverlay = new RadarOverlay({
+                map: map,
+                center: new naver.maps.LatLng(lat, lng),
+                radius: 5000
+            });
+        }
+    } catch (e) {
+        console.warn("Radar overlay failed to initialize, but map will continue.", e);
+    }
 
-    document.getElementById('loading-overlay').style.opacity = '0';
-    setTimeout(() => {
-        document.getElementById('loading-overlay').style.display = 'none';
-    }, 300);
+    // Always hide loading overlay
+    const hideOverlay = () => {
+        const overlay = document.getElementById('loading-overlay');
+        if (overlay) {
+            overlay.style.opacity = '0';
+            setTimeout(() => {
+                overlay.style.display = 'none';
+            }, 300);
+        }
+    };
+    hideOverlay();
 
     searchPlaces('버터떡', lat, lng);
 
