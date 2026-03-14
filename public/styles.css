@@ -185,7 +185,7 @@ main {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    z-index: 50;
+    z-index: 2000;
     cursor: pointer;
     transition: all 0.2s active;
 }
@@ -291,6 +291,10 @@ main {
 @media (max-width: 768px) {
     .mobile-only {
         display: flex;
+    }
+
+    #list-toggle-btn {
+        bottom: 120px;
     }
 
     header {
