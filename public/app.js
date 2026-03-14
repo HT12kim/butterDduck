@@ -10,23 +10,12 @@ const DEFAULT_LNG = 126.9706;
 
 let currentLat = 37.5665; // 기본값 (서울 시청)
 let currentLng = 126.9780;
-
-function setupMobileUI() {
-    const listBtn = document.getElementById('list-toggle-btn');
-    const infoPanel = document.getElementById('info-panel');
-    
-    if (listBtn) {
-        listBtn.onclick = () => {
-            infoPanel.classList.toggle('open');
-            listBtn.innerHTML = infoPanel.classList.contains('open') ? 
-                '<span class="btn-icon">🗺️</span> 지도보기' : 
-                '<span class="btn-icon">📋</span> 목록보기';
-        };
-    }
-}
+let storeLikes = {}; // 전역 변수 선언 누락 수정
 
 async function initApp() {
     setupMobileUI();
+    let initTimeout;
+
     try {
         // 1. Get Client ID from our backend
         const configResponse = await fetch('/api/config');
@@ -43,21 +32,39 @@ async function initApp() {
         // 3. Initialize InfoWindow after Maps API is loaded
         infoWindow = new naver.maps.InfoWindow({ anchorSkew: true });
 
-        // 4. Geolocation API를 사용하여 현재 위치 수신
+        // 4. Geolocation API를 사용하여 현재 위치 수신 시도
+        // 8초 후에도 응답이 없으면 기본 위치로 시작하는 안전 장치
+        let isInitialized = false;
+        initTimeout = setTimeout(() => {
+            if (!isInitialized) {
+                console.warn("Geolocation timed out. Initializing with default location.");
+                isInitialized = true;
+                initializeMap(currentLat, currentLng);
+            }
+        }, 8000);
+
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
                 (position) => {
+                    if (isInitialized) return;
+                    isInitialized = true;
+                    clearTimeout(initTimeout);
                     currentLat = position.coords.latitude;
                     currentLng = position.coords.longitude;
                     initializeMap(currentLat, currentLng);
                 },
                 (error) => {
+                    if (isInitialized) return;
+                    isInitialized = true;
+                    clearTimeout(initTimeout);
                     console.warn("Geolocation failed or denied. Using default Seoul center.", error);
-                    initializeMap(currentLat, currentLng); // Use default currentLat/Lng
+                    initializeMap(currentLat, currentLng);
                 },
-                { timeout: 5000 } // 5초 타임아웃
+                { timeout: 5000, enableHighAccuracy: true }
             );
         } else {
+            isInitialized = true;
+            clearTimeout(initTimeout);
             console.warn("Browser doesn't support geolocation.");
             initializeMap(currentLat, currentLng);
         }
@@ -83,7 +90,7 @@ function loadNaverMapsScript(clientId) {
 
 function initializeMap(lat, lng) {
     const mapOptions = {
-        center: new naver.maps.LatLng(currentLat, currentLng),
+        center: new naver.maps.LatLng(lat, lng),
         zoom: 14,
         minZoom: 10,
         mapTypeControl: true,
