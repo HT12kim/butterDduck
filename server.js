@@ -154,27 +154,59 @@ app.get('/api/search', async (req, res) => {
             '커피숍',
         ];
 
-        // 검색어가 카페/디저트/커피 관련이면 카테고리 필터 완화
+        // 프랜차이즈 키워드(업종 무시)
+        const franchiseKeywords = [
+            '빽다방',
+            '스타벅스',
+            '이디야',
+            '투썸',
+            '메가커피',
+            '할리스',
+            '커피빈',
+            '파스쿠찌',
+            '컴포즈',
+            '더벤티',
+            '엔제리너스',
+            '폴바셋',
+            '탐앤탐스',
+        ];
         const queryStr = (query || '').toLowerCase();
-        const relaxCategory = allowedCategories.some((cat) => queryStr.includes(cat.toLowerCase()));
+        const isFranchise = franchiseKeywords.some((kw) => queryStr.includes(kw.toLowerCase()));
 
         let allItems = [];
         const seenAddresses = new Set();
 
+        // 1차: 업종 필터 + 상호명 포함(프랜차이즈면 무시)
         searchResponses.forEach((response) => {
             if (response.data.items) {
                 response.data.items.forEach((item) => {
                     const cleanAddress = item.roadAddress || item.address;
                     const categoryStr = (item.category || '').toLowerCase();
+                    const titleStr = (item.title || '').replace(/<[^>]*>?/gm, '').toLowerCase();
                     const isAllowed = allowedCategories.some((cat) => categoryStr.includes(cat.toLowerCase()));
-                    // relaxCategory가 true면 카테고리 무시하고 모두 포함, 아니면 기존 필터 적용
-                    if ((relaxCategory || isAllowed) && !seenAddresses.has(cleanAddress)) {
+                    const isNameInTitleOrCategory = titleStr.includes(queryStr) || categoryStr.includes(queryStr);
+                    if ((isFranchise || isAllowed || isNameInTitleOrCategory) && !seenAddresses.has(cleanAddress)) {
                         seenAddresses.add(cleanAddress);
                         allItems.push(item);
                     }
                 });
             }
         });
+
+        // 2차: 결과가 0개면 업종 필터 없이 한 번 더(중복 주소는 여전히 제거)
+        if (allItems.length === 0) {
+            searchResponses.forEach((response) => {
+                if (response.data.items) {
+                    response.data.items.forEach((item) => {
+                        const cleanAddress = item.roadAddress || item.address;
+                        if (!seenAddresses.has(cleanAddress)) {
+                            seenAddresses.add(cleanAddress);
+                            allItems.push(item);
+                        }
+                    });
+                }
+            });
+        }
 
         console.log(`Found ${allItems.length} unique stores. Enriching with coordinates...`);
 
