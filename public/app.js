@@ -220,12 +220,12 @@ function getDistanceKm(lat1, lng1, lat2, lng2) {
 
 async function searchPlaces(query, lat, lng) {
     try {
-        // 백엔드에 현재 위경도를 전달하여 주변 검색 유도
+        console.log('[DEBUG] searchPlaces 호출:', query, lat, lng); // Log function call
         const response = await fetch(`/api/search?query=${encodeURIComponent(query)}&lat=${lat}&lng=${lng}`);
         const data = await response.json();
+        console.log('[DEBUG] API 응답 데이터:', data); // Log API response
 
         if (data.items) {
-            // 현재 위치로부터 5km 이내 가게만 필터링
             const RADIUS_KM = 5;
             const filtered = data.items
                 .map((item) => {
@@ -235,6 +235,7 @@ async function searchPlaces(query, lat, lng) {
                 .filter((item) => item.distanceKm <= RADIUS_KM)
                 .sort((a, b) => a.distanceKm - b.distanceKm);
 
+            console.log('[DEBUG] 필터링된 데이터:', filtered); // Log filtered results
             displayPlaces(filtered);
             updateMarkers(filtered);
         }
@@ -527,11 +528,12 @@ function showAddStoreModal() {
     };
 }
 
-// Modify the searchPlaces call to use dynamic user input
+// Debugging: Log the query and API response
 const searchInput = document.getElementById('search-input');
 if (searchInput) {
     searchInput.addEventListener('change', () => {
         const query = searchInput.value.trim();
+        console.log('[DEBUG] 검색어 입력값:', query); // Log user input
         if (query) {
             searchPlaces(query, currentLat, currentLng);
         }
