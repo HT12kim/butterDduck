@@ -33,6 +33,13 @@ function setupMobileUI() {
             }
         };
     }
+
+    const addStoreBtn = document.getElementById('add-store-btn');
+    if (addStoreBtn) {
+        addStoreBtn.onclick = () => {
+            showAddStoreModal();
+        };
+    }
 }
 
 async function initApp() {
@@ -85,7 +92,7 @@ async function initApp() {
                     console.warn('Geolocation failed or denied. Using default Seoul center.', error);
                     initializeMap(currentLat, currentLng);
                 },
-                { timeout: 5000, enableHighAccuracy: true }
+                { timeout: 5000, enableHighAccuracy: true },
             );
         } else {
             isInitialized = true;
@@ -243,7 +250,7 @@ function displayPlaces(items) {
     resultCount.textContent = items.length;
 
     if (items.length === 0) {
-        listContainer.innerHTML = '<p class="empty-msg">검색 결과가 없습니다.</p>';
+        listContainer.innerHTML = '<p class="empty-msg">디저트 가게 중에 검색결과가 없습니다.</p>';
         return;
     }
 
@@ -305,9 +312,10 @@ async function handleLike(storeId, badgeEl) {
         const data = await res.json();
 
         // Update local state and UI
-        storeLikes[storeId] = data.count;
+        const count = typeof data.count === 'number' && !isNaN(data.count) ? data.count : 0;
+        storeLikes[storeId] = count;
         if (badgeEl) {
-            badgeEl.innerText = data.count;
+            badgeEl.innerText = count;
             badgeEl.classList.add('bump');
             setTimeout(() => badgeEl.classList.remove('bump'), 400);
         }
@@ -381,7 +389,7 @@ function showInfoWindow(marker, item) {
             <h4 style="margin:0 0 5px 0; color:#333;">${item.title.replace(/<[^>]*>?/gm, '')}</h4>
             <p style="margin:0; font-size:12px; color:#666;">${item.roadAddress || item.address}</p>
             <a href="https://search.naver.com/search.naver?query=${encodeURIComponent(
-                item.title.replace(/<[^>]*>?/gm, '')
+                item.title.replace(/<[^>]*>?/gm, ''),
             )}" 
                target="_blank" 
                style="display:inline-block; margin-top:8px; font-size:12px; color:#ccac00; text-decoration:none; font-weight:bold;">
@@ -394,3 +402,50 @@ function showInfoWindow(marker, item) {
 }
 
 document.addEventListener('DOMContentLoaded', initApp);
+
+function showAddStoreModal() {
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.5); z-index: 2000; display: flex;
+        align-items: center; justify-content: center;
+    `;
+    modal.innerHTML = `
+        <div style="background: white; padding: 20px; border-radius: 10px; max-width: 400px; width: 90%;">
+            <h3>새 가게 등록</h3>
+            <input type="text" id="store-name" placeholder="가게 이름" style="width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px;">
+            <button id="search-store-btn" style="background: #FFD93D; color: black; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">검색</button>
+            <div id="search-results" style="margin-top: 10px;"></div>
+            <button id="close-modal-btn" style="background: #ccc; color: black; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin-top: 10px;">닫기</button>
+        </div>
+    `;
+    document.body.appendChild(modal);
+
+    document.getElementById('close-modal-btn').onclick = () => {
+        document.body.removeChild(modal);
+    };
+
+    document.getElementById('search-store-btn').onclick = async () => {
+        const name = document.getElementById('store-name').value;
+        if (!name) return alert('가게 이름을 입력하세요.');
+
+        try {
+            const response = await fetch('/api/add-store', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name }),
+            });
+            const result = await response.json();
+            if (result.success) {
+                alert('가게가 등록되었습니다!');
+                document.body.removeChild(modal);
+                // Refresh map
+                searchPlaces('버터떡', currentLat, currentLng);
+            } else {
+                alert('등록 실패: ' + result.error);
+            }
+        } catch (error) {
+            alert('오류 발생: ' + error.message);
+        }
+    };
+}

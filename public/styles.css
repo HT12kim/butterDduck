@@ -1,3 +1,8 @@
+.custom-marker {
+    position: relative;
+    width: 44px;
+    height: 44px;
+}
 :root {
     --primary: #ffd93d;
     --primary-soft: #fff2af;
@@ -46,6 +51,7 @@ header {
     gap: 1rem;
     max-width: 1200px;
     margin: 0 auto;
+    justify-content: space-between;
 }
 
 .logo-emoji {
@@ -62,6 +68,21 @@ header {
 .title-group p {
     font-size: 0.85rem;
     color: var(--text-muted);
+}
+
+#add-store-btn {
+    background: var(--primary);
+    color: black;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+#add-store-btn:hover {
+    background: var(--primary-soft);
 }
 
 main {
@@ -318,6 +339,7 @@ main {
     box-sizing: border-box;
     pointer-events: none;
     animation: badge-pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    z-index: 10;
 }
 
 @keyframes badge-pop {

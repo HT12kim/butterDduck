@@ -1,15 +1,65 @@
+// ...중복 선언 제거...
+
 require('dotenv').config();
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs'); // Added fs module
+const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const LIKES_FILE = path.join(__dirname, 'likes.json'); // Added LIKES_FILE
 
-// Ensure likes file exists
+// Supabase setup
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_ANON_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+// Supabase 기반 Likes API
+// GET: 모든 가게의 {storeId: likes} 반환
+app.get('/api/likes', async (req, res) => {
+    try {
+        const { data, error } = await supabase.from('stores').select('id,likes');
+        if (error) throw error;
+        // { store_123: 5, ... } 형태로 변환
+        const likesMap = {};
+        data.forEach((store) => {
+            likesMap['store_' + store.id] = typeof store.likes === 'number' ? store.likes : 0;
+        });
+        res.json(likesMap);
+    } catch (e) {
+        res.status(500).json({ error: 'Failed to read likes data from DB' });
+    }
+});
+
+// POST: { id: 'store_123' } → 해당 store의 likes +1
+app.post('/api/likes', async (req, res) => {
+    try {
+        const { id } = req.body;
+        if (!id || !id.startsWith('store_')) return res.status(400).json({ error: 'Missing or invalid id' });
+        const storeId = parseInt(id.replace('store_', ''), 10);
+        if (isNaN(storeId)) return res.status(400).json({ error: 'Invalid store id' });
+
+        // 현재 likes 값 조회
+        const { data: store, error: fetchError } = await supabase
+            .from('stores')
+            .select('likes')
+            .eq('id', storeId)
+            .single();
+        if (fetchError || !store) return res.status(404).json({ error: 'Store not found' });
+        const newLikes = (store.likes || 0) + 1;
+
+        // likes 값 업데이트
+        const { error: updateError } = await supabase.from('stores').update({ likes: newLikes }).eq('id', storeId);
+        if (updateError) throw updateError;
+
+        res.json({ id, count: newLikes });
+    } catch (e) {
+        res.status(500).json({ error: 'Failed to update likes in DB' });
+    }
+});
 if (!fs.existsSync(LIKES_FILE)) {
     fs.writeFileSync(LIKES_FILE, JSON.stringify({}));
 }
@@ -34,15 +84,15 @@ async function getGeocoding(address) {
             params: { query: address },
             headers: {
                 'X-NCP-APIGW-API-KEY-ID': process.env.NCP_CLIENT_ID,
-                'X-NCP-APIGW-API-KEY': process.env.NCP_CLIENT_SECRET
-            }
+                'X-NCP-APIGW-API-KEY': process.env.NCP_CLIENT_SECRET,
+            },
         });
 
         if (response.data.addresses && response.data.addresses.length > 0) {
             const addr = response.data.addresses[0];
             return {
                 lat: parseFloat(addr.y),
-                lng: parseFloat(addr.x)
+                lng: parseFloat(addr.x),
             };
         }
     } catch (error) {
@@ -55,45 +105,41 @@ async function getGeocoding(address) {
 app.get('/api/search', async (req, res) => {
     try {
         const { query } = req.query;
-        
+
         if (!query) {
             return res.status(400).json({ error: 'Query parameter is required' });
         }
 
         // Search for multiple variations to find more stores
-        const queries = [
-            query, 
-            `${query} 카페`, 
-            `${query} 맛집`
-        ];
-        const searchPromises = queries.map(q => 
+        const queries = [query, `${query} 카페`, `${query} 맛집`];
+        const searchPromises = queries.map((q) =>
             axios.get('https://openapi.naver.com/v1/search/local.json', {
                 params: { query: q, display: 20 },
                 headers: {
-                    'X-Naver-Client-Id': process.env.SEARCH_CLIENT_ID,
-                    'X-Naver-Client-Secret': process.env.SEARCH_CLIENT_SECRET
-                }
-            })
+                    'X-Naver-Client-Id': process.env.NAVER_CLIENT_ID,
+                    'X-Naver-Client-Secret': process.env.NAVER_CLIENT_SECRET,
+                },
+            }),
         );
 
         const searchResponses = await Promise.all(searchPromises);
-        
+
         // Flatten and deduplicate results by address
         let allItems = [];
         const seenAddresses = new Set();
 
-        searchResponses.forEach(response => {
+        searchResponses.forEach((response) => {
             if (response.data.items) {
-                response.data.items.forEach(item => {
+                response.data.items.forEach((item) => {
                     const cleanAddress = item.roadAddress || item.address;
-                    // '카페' 또는 '디저트' 또는 '베이커리'가 포함된 카테고리만 필터링
-                    const isDessert = item.category && (
-                        item.category.includes('카페') || 
-                        item.category.includes('디저트') ||
-                        item.category.includes('베이커리')
-                    );
+                    // '카페', '디저트', '베이커리'가 포함된 카테고리만 필터링
+                    const isCafeDessertBakery =
+                        item.category &&
+                        (item.category.includes('카페') ||
+                            item.category.includes('디저트') ||
+                            item.category.includes('베이커리'));
 
-                    if (isDessert && !seenAddresses.has(cleanAddress)) {
+                    if (isCafeDessertBakery && !seenAddresses.has(cleanAddress)) {
                         seenAddresses.add(cleanAddress);
                         allItems.push(item);
                     }
@@ -126,13 +172,36 @@ app.get('/api/search', async (req, res) => {
                     lat: lat,
                     lng: lng,
                     category: item.category,
-                    link: item.link
+                    link: item.link,
                 };
             }
             return null;
         });
 
-        const enrichedItems = (await Promise.all(enrichedItemsPromises)).filter(item => item !== null);
+        const enrichedItems = (await Promise.all(enrichedItemsPromises)).filter((item) => item !== null);
+
+        // Add user-added stores from Supabase
+        try {
+            const { data: userStores, error } = await supabase.from('stores').select('*');
+
+            if (error) {
+                console.error('Supabase select error:', error);
+            } else if (userStores) {
+                userStores.forEach((store) => {
+                    enrichedItems.push({
+                        title: store.name,
+                        address: store.address,
+                        roadAddress: store.address,
+                        lat: store.lat,
+                        lng: store.lng,
+                        category: '사용자 등록',
+                        link: '',
+                    });
+                });
+            }
+        } catch (err) {
+            console.error('Error fetching user stores:', err);
+        }
 
         res.json({ items: enrichedItems });
     } catch (error) {
@@ -144,25 +213,86 @@ app.get('/api/search', async (req, res) => {
 // Endpoint to provide Maps API client ID securely to frontend
 app.get('/api/config', (req, res) => {
     res.json({
-        mapsClientId: process.env.NCP_CLIENT_ID
+        mapsClientId: process.env.NCP_CLIENT_ID,
     });
 });
 
-// Endpoint to get all likes
-app.get('/api/likes', (req, res) => {
-    res.json(getLikesData());
+// Endpoint to add a new store
+app.post('/api/add-store', async (req, res) => {
+    console.log('POST /api/add-store called with:', req.body);
+    const { name } = req.body;
+    if (!name) return res.status(400).json({ error: 'Store name is required' });
+
+    try {
+        // Search using Naver Search API
+        const searchResponse = await axios.get('https://openapi.naver.com/v1/search/local.json', {
+            params: { query: `${name} 버터떡`, display: 5 },
+            headers: {
+                'X-Naver-Client-Id': process.env.NAVER_CLIENT_ID,
+                'X-Naver-Client-Secret': process.env.NAVER_CLIENT_SECRET,
+            },
+        });
+
+        if (searchResponse.data.items && searchResponse.data.items.length > 0) {
+            const item = searchResponse.data.items[0];
+            const address = item.roadAddress || item.address;
+
+            // Get coordinates
+            let coords = await getGeocoding(address);
+            if (!coords) {
+                if (item.mapy && item.mapx) {
+                    coords = {
+                        lat: parseFloat(item.mapy) / 1e7,
+                        lng: parseFloat(item.mapx) / 1e7,
+                    };
+                    console.warn('Geocoding failed, using Naver API coordinates for:', address, coords);
+                } else {
+                    coords = { lat: 37.5665, lng: 126.978 };
+                    console.warn('Geocoding and Naver API coordinates both missing, using default for:', address);
+                }
+            }
+
+            // Insert into Supabase
+            console.log('Inserting into Supabase:', { name, address, lat: coords.lat, lng: coords.lng });
+            const { data, error } = await supabase
+                .from('stores')
+                .insert([{ name, address, lat: coords.lat, lng: coords.lng }]);
+
+            if (error) {
+                console.error('Supabase insert error:', error);
+                // 사용자 친화적 메시지
+                return res
+                    .status(500)
+                    .json({ error: 'DB 저장에 실패했습니다. 이미 등록된 가게이거나, 서버에 문제가 있습니다.' });
+            }
+            console.log('Inserted successfully:', data);
+
+            res.json({ success: true, store: data ? data[0] : null });
+        } else {
+            // 사용자 친화적 메시지
+            res.status(404).json({ error: '디저트 가게 중에 검색결과가 없습니다. 가게명을 정확히 입력해 주세요.' });
+        }
+    } catch (error) {
+        console.error('Error adding store:', error);
+        // 네이버 API 인증 오류 등 상세 안내
+        if (error.response && error.response.status === 401) {
+            return res.status(500).json({ error: '네이버 API 인증에 실패했습니다. 관리자에게 문의해 주세요.' });
+        }
+        res.status(500).json({ error: '알 수 없는 오류로 등록에 실패했습니다. 잠시 후 다시 시도해 주세요.' });
+    }
 });
 
-// Endpoint to increment like
-app.post('/api/likes', (req, res) => {
-    const { id } = req.body;
-    if (!id) return res.status(400).json({ error: 'ID is required' });
+// Endpoint to get all stores
+app.get('/api/stores', async (req, res) => {
+    try {
+        const { data, error } = await supabase.from('stores').select('*');
 
-    const likes = getLikesData();
-    likes[id] = (likes[id] || 0) + 1;
-    saveLikesData(likes);
-    
-    res.json({ id, count: likes[id] });
+        if (error) throw error;
+        res.json(data);
+    } catch (error) {
+        console.error('Error fetching stores:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
 });
 
 app.listen(PORT, () => {
