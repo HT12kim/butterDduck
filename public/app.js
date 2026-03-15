@@ -2,6 +2,7 @@ let map;
 let markers = [];
 let infoWindow;
 
+
 // 하드코딩된 위치 주석 처리 (웹 배포용으로 실제 위치 수신 사용)
 /*
 const DEFAULT_LAT = 37.5547;
@@ -23,58 +24,46 @@ function setupMobileUI() {
                 ? '<span class="btn-icon">🗺️</span> 지도보기'
                 : '<span class="btn-icon">📋</span> 목록보기';
         };
-    }
 
-    const myLocBtn = document.getElementById('my-location-btn');
-    if (myLocBtn) {
-        myLocBtn.onclick = () => {
-            if (map) {
-                map.panTo(new naver.maps.LatLng(currentLat, currentLng));
-            }
-        };
-    }
-
-    const addStoreBtn = document.getElementById('add-store-btn');
-    if (addStoreBtn) {
-        addStoreBtn.onclick = () => {
-            showAddStoreModal();
-        };
-    }
-}
-
-async function initApp() {
-    console.log('initApp started');
-    setupMobileUI();
-    let initTimeout;
-
-    try {
-        // 1. Get Client ID from our backend
-        const configResponse = await fetch('/api/config');
-        const config = await configResponse.json();
-
-        if (!config.mapsClientId) {
-            alert('Naver Maps Client ID가 설정되지 않았습니다. .env 파일을 확인해주세요.');
-            return;
+    // 카카오톡 공유 버튼 이벤트 및 SDK 로드
+    function setupKakaoShareButton() {
+        const btn = document.getElementById('kakao-share-btn');
+        if (!btn) return;
+        function setHandler() {
+            btn.onclick = function() {
+                if (window.Kakao && window.Kakao.Link) {
+                    window.Kakao.Link.sendDefault({
+                        objectType: 'feed',
+                        content: {
+                            title: document.title,
+                            description: '지금 위치에서 맛집을 공유해보세요!',
+                            imageUrl: location.origin + '/image.png',
+                            link: { mobileWebUrl: location.href, webUrl: location.href }
+                        },
+                        buttons: [
+                            { title: '웹에서 보기', link: { mobileWebUrl: location.href, webUrl: location.href } }
+                        ]
+                    });
+                } else {
+                    alert('카카오톡 공유 기능을 사용할 수 없습니다.');
+                }
+            };
         }
-
-        // 2. Load Naver Maps Script
-        await loadNaverMapsScript(config.mapsClientId);
-        console.log('Naver Maps script loaded');
-
-        // 4. Initialize InfoWindow after Maps API is loaded
-        infoWindow = new naver.maps.InfoWindow({ anchorSkew: true });
-
-        // 4. Geolocation API를 사용하여 현재 위치 수신 시도
-        // 8초 후에도 응답이 없으면 기본 위치로 시작하는 안전 장치
-        let isInitialized = false;
-        initTimeout = setTimeout(() => {
-            if (!isInitialized) {
-                console.warn('Geolocation timed out. Initializing with default location.');
-                isInitialized = true;
-                initializeMap(currentLat, currentLng);
-            }
-        }, 8000);
-
+        if (!window.Kakao) {
+            const script = document.createElement('script');
+            script.src = 'https://developers.kakao.com/sdk/js/kakao.min.js';
+            script.onload = function() {
+                if (window.Kakao && !window.Kakao.isInitialized()) {
+                    window.Kakao.init('29715a75759d24bb0c78b8571b830651'); // 본인 JS키 입력
+                }
+                setHandler();
+            };
+            document.head.appendChild(script);
+        } else {
+            setHandler();
+        }
+    }
+    document.addEventListener('DOMContentLoaded', setupKakaoShareButton);
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
                 (position) => {
