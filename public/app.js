@@ -329,47 +329,54 @@ async function handleLike(storeId, badgeEl) {
 }
 
 async function updateMarkers(items) {
-    markers.forEach((m) => m.setMap(null));
-    markers = [];
-
+    // 마커 깜빡임 방지: 기존 마커 재사용(위치, storeId 기준)
+    const newMarkers = [];
     await fetchLikes();
 
     items.forEach((item, index) => {
         const storeId = getStoreId(item);
         const likeCount = storeLikes[storeId] || 0;
-
-        // Create Custom HTML Content for Marker
         const markerContent = `
             <div class="custom-marker" id="marker-${storeId}">
                 <img src="./image.png" class="marker-img" alt="butter tteok">
                 ${likeCount > 0 ? `<div class="like-badge">${likeCount}</div>` : ''}
             </div>
         `;
-
-        const marker = new naver.maps.Marker({
-            position: new naver.maps.LatLng(item.lat, item.lng),
-            map: map,
-            icon: {
-                content: markerContent,
-                size: new naver.maps.Size(44, 44),
-                anchor: new naver.maps.Point(22, 22),
-            },
+        // 기존 마커 재사용
+        let marker = markers.find((m) => {
+            const pos = m.getPosition();
+            return pos && pos.lat() === item.lat && pos.lng() === item.lng && m.storeId === storeId;
         });
-
-        // Add both InfoWindow logic and Like logic
+        if (!marker) {
+            marker = new naver.maps.Marker({
+                position: new naver.maps.LatLng(item.lat, item.lng),
+                map: map,
+                icon: {
+                    content: markerContent,
+                    size: new naver.maps.Size(31, 31), // 70% 크기
+                    anchor: new naver.maps.Point(15.5, 15.5),
+                },
+            });
+            marker.storeId = storeId;
+        } else {
+            marker.setIcon({
+                content: markerContent,
+                size: new naver.maps.Size(31, 31),
+                anchor: new naver.maps.Point(15.5, 15.5),
+            });
+            marker.setMap(map);
+        }
+        naver.maps.Event.clearInstanceListeners(marker);
         naver.maps.Event.addListener(marker, 'click', (e) => {
-            // Check if clicking the image directly for "Like"
             const target = e.domEvent.target;
             if (target.tagName === 'IMG') {
                 let badgeEl = document.querySelector(`#marker-${storeId} .like-badge`);
-                // If badge doesn't exist yet but it's the first like, we need to create it
                 if (!badgeEl) {
                     const container = document.getElementById(`marker-${storeId}`);
                     if (container) {
-                        // Ensure container exists before appending
                         badgeEl = document.createElement('div');
                         badgeEl.className = 'like-badge';
-                        badgeEl.innerText = '0'; // Will be updated by handleLike
+                        badgeEl.innerText = '0';
                         container.appendChild(badgeEl);
                     }
                 }
@@ -378,9 +385,13 @@ async function updateMarkers(items) {
                 showInfoWindow(marker, item);
             }
         });
-
-        markers.push(marker);
+        newMarkers.push(marker);
     });
+    // 기존 마커 중에 남아있는 것들은 지도에서 제거
+    markers.forEach((m) => {
+        if (!newMarkers.includes(m)) m.setMap(null);
+    });
+    markers = newMarkers;
 }
 
 function showInfoWindow(marker, item) {
@@ -402,6 +413,57 @@ function showInfoWindow(marker, item) {
 }
 
 document.addEventListener('DOMContentLoaded', initApp);
+
+// 카카오톡 공유 버튼 생성
+function createKakaoShareButton() {
+    const btn = document.createElement('button');
+    btn.id = 'kakao-share-btn';
+    btn.innerHTML =
+        '<img src="https://developers.kakao.com/assets/img/about/logos/kakaolink/kakaolink_btn_medium.png" alt="카카오톡 공유" style="width:48px; height:48px;">';
+    btn.style.position = 'fixed';
+    btn.style.right = '24px';
+    btn.style.bottom = '24px';
+    btn.style.zIndex = '3000';
+    btn.style.background = 'transparent';
+    btn.style.border = 'none';
+    btn.style.cursor = 'pointer';
+    btn.onclick = function () {
+        if (window.Kakao && window.Kakao.Link) {
+            window.Kakao.Link.sendDefault({
+                objectType: 'feed',
+                content: {
+                    title: document.title,
+                    description: '지금 위치에서 맛집을 공유해보세요!',
+                    imageUrl: location.origin + '/image.png',
+                    link: { mobileWebUrl: location.href, webUrl: location.href },
+                },
+                buttons: [{ title: '웹에서 보기', link: { mobileWebUrl: location.href, webUrl: location.href } }],
+            });
+        } else {
+            alert('카카오톡 공유 기능을 사용할 수 없습니다.');
+        }
+    };
+    document.body.appendChild(btn);
+}
+
+// 카카오 SDK 로드 및 버튼 생성
+function loadKakaoSdkAndButton() {
+    if (!window.Kakao) {
+        const script = document.createElement('script');
+        script.src = 'https://developers.kakao.com/sdk/js/kakao.min.js';
+        script.onload = function () {
+            if (window.Kakao && !window.Kakao.isInitialized()) {
+                window.Kakao.init('29715a75759d24bb0c78b8571b830651'); // 여기에 본인 JS키 입력
+            }
+            createKakaoShareButton();
+        };
+        document.head.appendChild(script);
+    } else {
+        createKakaoShareButton();
+    }
+}
+
+document.addEventListener('DOMContentLoaded', loadKakaoSdkAndButton);
 
 function showAddStoreModal() {
     const modal = document.createElement('div');

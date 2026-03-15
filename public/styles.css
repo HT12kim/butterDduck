@@ -1,7 +1,7 @@
 .custom-marker {
     position: relative;
-    width: 44px;
-    height: 44px;
+    width: 31px;
+    height: 31px;
     overflow: visible; /* 투명영역 잘림 방지 */
 }
 :root {
