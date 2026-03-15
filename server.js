@@ -111,7 +111,7 @@ app.get('/api/search', async (req, res) => {
         }
 
         // Search for multiple variations to find more stores
-        const queries = [query, `${query} 카페`, `${query} 맛집`];
+        const queries = [query, `${query} 카페`, `${query} 맛집`, `${query} 파는곳`];
         const searchPromises = queries.map((q) =>
             axios.get('https://openapi.naver.com/v1/search/local.json', {
                 params: { query: q, display: 20 },
@@ -124,7 +124,30 @@ app.get('/api/search', async (req, res) => {
 
         const searchResponses = await Promise.all(searchPromises);
 
-        // Flatten and deduplicate results by address
+        // 확장된 카테고리 키워드 배열
+        const allowedCategories = [
+            '카페',
+            '디저트',
+            '빵집',
+            '후식',
+            '커피',
+            '까페',
+            '베이커리',
+            '제과점',
+            '브런치',
+            '케이크',
+            '샌드위치',
+            '파티쉐',
+            '디저트카페',
+            'dessert',
+            'cafe',
+            'bakery',
+            'patisserie',
+            'brunch',
+            'cake',
+            'sandwich',
+        ];
+
         let allItems = [];
         const seenAddresses = new Set();
 
@@ -132,14 +155,10 @@ app.get('/api/search', async (req, res) => {
             if (response.data.items) {
                 response.data.items.forEach((item) => {
                     const cleanAddress = item.roadAddress || item.address;
-                    // '카페', '디저트', '베이커리'가 포함된 카테고리만 필터링
-                    const isCafeDessertBakery =
-                        item.category &&
-                        (item.category.includes('카페') ||
-                            item.category.includes('디저트') ||
-                            item.category.includes('베이커리'));
-
-                    if (isCafeDessertBakery && !seenAddresses.has(cleanAddress)) {
+                    // 카테고리 문자열을 소문자로 변환 후, 확장 키워드 포함 여부 체크
+                    const categoryStr = (item.category || '').toLowerCase();
+                    const isAllowed = allowedCategories.some((cat) => categoryStr.includes(cat.toLowerCase()));
+                    if (isAllowed && !seenAddresses.has(cleanAddress)) {
                         seenAddresses.add(cleanAddress);
                         allItems.push(item);
                     }
