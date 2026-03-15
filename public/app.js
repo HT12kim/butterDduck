@@ -227,13 +227,16 @@ async function searchPlaces(query, lat, lng) {
 
         if (data.items) {
             const RADIUS_KM = 5;
+            const queryWords = query.split(/\s+/); // Split query into words
             const filtered = data.items
                 .map((item) => {
                     const dist = getDistanceKm(lat, lng, item.lat, item.lng);
                     return { ...item, distanceKm: dist };
                 })
                 .filter((item) => {
-                    const matchesQuery = item.title.includes(query) || item.address.includes(query);
+                    const matchesQuery = queryWords.every(
+                        (word) => item.title.includes(word) || item.address.includes(word),
+                    );
                     return matchesQuery && item.distanceKm <= RADIUS_KM;
                 })
                 .sort((a, b) => a.distanceKm - b.distanceKm);
