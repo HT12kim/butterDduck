@@ -55,8 +55,10 @@ async function getGeocoding(address) {
 // API Routes
 app.get('/api/search', async (req, res) => {
     try {
-        const { query } = req.query;
+        const { query, lat, lng } = req.query;
         if (!query) return res.status(400).json({ error: 'Query required' });
+        const userLat = lat ? parseFloat(lat) : null;
+        const userLng = lng ? parseFloat(lng) : null;
 
         // 검색 쿼리 변형
         const queries = [query, `${query} 카페`, `${query} 맛집`, `${query} 파는곳`];
@@ -184,6 +186,31 @@ app.get('/api/search', async (req, res) => {
         });
         const enrichedItems = (await Promise.all(enrichedItemsPromises)).filter((item) => item !== null);
 
+        // 5km 반경 필터링 (좌표가 모두 있을 때만)
+        let filteredByRadius = enrichedItems;
+        if (userLat !== null && userLng !== null) {
+            const getDistanceKm = (lat1, lng1, lat2, lng2) => {
+                const R = 6371;
+                const dLat = ((lat2 - lat1) * Math.PI) / 180;
+                const dLng = ((lng2 - lng1) * Math.PI) / 180;
+                const a =
+                    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                    Math.cos((lat1 * Math.PI) / 180) *
+                        Math.cos((lat2 * Math.PI) / 180) *
+                        Math.sin(dLng / 2) *
+                        Math.sin(dLng / 2);
+                return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            };
+            filteredByRadius = enrichedItems.filter((item) => {
+                if (item.lat && item.lng) {
+                    const dist = getDistanceKm(userLat, userLng, item.lat, item.lng);
+                    item.distanceKm = dist;
+                    return dist <= 5;
+                }
+                return false;
+            });
+        }
+
         // Supabase에서 사용자 등록 가게 추가
         let userStores = null;
         try {
@@ -209,11 +236,12 @@ app.get('/api/search', async (req, res) => {
         }
 
         res.json({
-            items: enrichedItems,
+            items: filteredByRadius,
             _debug: {
                 naverItems: totalNaverItems,
                 filteredItems: allItems.length,
                 enrichedItems: enrichedItems.length,
+                filteredByRadius: filteredByRadius.length,
                 supabaseUserStores: userStores ? userStores.length : null,
             },
         });
@@ -245,27 +273,65 @@ app.post('/api/add-store', async (req, res) => {
     if (!name) return res.status(400).json({ error: 'Store name is required' });
 
     try {
-        // Check for duplicate stores in Supabase
-        const { data: existingStores, error: checkError } = await supabase.from('stores').select('*').eq('name', name);
+        // Naver Search API로 가게 검색
+        const searchResponse = await axios.get('https://openapi.naver.com/v1/search/local.json', {
+            params: { query: `${name} 버터떡`, display: 5 },
+            headers: {
+                'X-Naver-Client-Id': process.env.NAVER_CLIENT_ID,
+                'X-Naver-Client-Secret': process.env.NAVER_CLIENT_SECRET,
+            },
+        });
 
-        if (checkError) {
-            return res.status(500).json({ error: 'Error checking for duplicate stores.' });
+        if (searchResponse.data.items && searchResponse.data.items.length > 0) {
+            const item = searchResponse.data.items[0];
+            const address = item.roadAddress || item.address;
+
+            // 좌표 변환
+            let coords = await getGeocoding(address);
+            if (!coords) {
+                if (item.mapy && item.mapx) {
+                    coords = {
+                        lat: parseFloat(item.mapy) / 1e7,
+                        lng: parseFloat(item.mapx) / 1e7,
+                    };
+                } else {
+                    coords = { lat: 37.5665, lng: 126.978 };
+                }
+            }
+
+            // 중복 체크: 주소+좌표로 stores 테이블에 이미 등록된 가게가 있는지 확인
+            const { data: existStores, error: existError } = await supabase
+                .from('stores')
+                .select('*')
+                .or(`address.eq.${address},and(lat.eq.${coords.lat},lng.eq.${coords.lng})`);
+
+            if (existError) {
+                return res.status(500).json({ error: 'DB 중복 체크 중 오류가 발생했습니다.' });
+            }
+            if (existStores && existStores.length > 0) {
+                return res.status(409).json({ error: '이미 등록된 가게입니다.' });
+            }
+
+            // Supabase에 저장
+            const { data, error } = await supabase
+                .from('stores')
+                .insert([{ name, address, lat: coords.lat, lng: coords.lng }]);
+
+            if (error) {
+                return res
+                    .status(500)
+                    .json({ error: 'DB 저장에 실패했습니다. 이미 등록된 가게이거나, 서버에 문제가 있습니다.' });
+            }
+
+            res.json({ success: true, store: data ? data[0] : null });
+        } else {
+            res.status(404).json({ error: '디저트 가게 중에 검색결과가 없습니다. 가게명을 정확히 입력해 주세요.' });
         }
-
-        if (existingStores && existingStores.length > 0) {
-            return res.status(409).json({ error: 'This store is already registered.' });
-        }
-
-        // Proceed with registration if no duplicates found
-        const { data, error } = await supabase.from('stores').insert([{ name }]);
-
-        if (error) {
-            return res.status(500).json({ error: 'Error registering the store.' });
-        }
-
-        res.json({ success: true, store: data[0] });
     } catch (error) {
-        res.status(500).json({ error: 'Unexpected error occurred during registration.' });
+        if (error.response && error.response.status === 401) {
+            return res.status(500).json({ error: '네이버 API 인증에 실패했습니다. 관리자에게 문의해 주세요.' });
+        }
+        res.status(500).json({ error: '알 수 없는 오류로 등록에 실패했습니다. 잠시 후 다시 시도해 주세요.' });
     }
 });
 
