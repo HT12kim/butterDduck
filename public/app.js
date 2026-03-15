@@ -449,13 +449,24 @@ function showAddStoreModal() {
                 resultsDiv.innerHTML = '<p style="color:#888;">검색 결과가 없습니다.</p>';
                 return;
             }
-            // 거리 계산 및 정렬
+            // 5km 이내만 필터링 및 거리 계산/정렬
+            const RADIUS_KM = 5;
             const items = data.items
                 .map((item) => {
                     const dist = getDistanceKm(currentLat, currentLng, item.lat, item.lng);
                     return { ...item, distanceKm: dist };
                 })
+                .filter((item) => item.distanceKm <= RADIUS_KM)
                 .sort((a, b) => a.distanceKm - b.distanceKm);
+
+            if (items.length === 0) {
+                resultsDiv.innerHTML = '<p style="color:#888;">반경 5km 내 검색 결과가 없습니다.</p>';
+                return;
+            }
+
+            // 스크롤바 적용 (최대 높이 300px)
+            resultsDiv.style.maxHeight = '300px';
+            resultsDiv.style.overflowY = 'auto';
 
             // 목록 렌더링
             resultsDiv.innerHTML = items
