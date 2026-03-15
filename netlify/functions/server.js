@@ -63,8 +63,8 @@ app.get('/api/search', async (req, res) => {
             axios.get('https://openapi.naver.com/v1/search/local.json', {
                 params: { query: q, display: 20 },
                 headers: {
-                    'X-Naver-Client-Id': process.env.SEARCH_CLIENT_ID,
-                    'X-Naver-Client-Secret': process.env.SEARCH_CLIENT_SECRET,
+                    'X-Naver-Client-Id': process.env.NAVER_CLIENT_ID,
+                    'X-Naver-Client-Secret': process.env.NAVER_CLIENT_SECRET,
                 },
             }),
         );
