@@ -106,7 +106,31 @@ app.get('/api/search', async (req, res) => {
             }),
         );
 
-        res.json({ items: enrichedItemsResults.filter((i) => i !== null) });
+        let items = enrichedItemsResults.filter((i) => i !== null);
+
+        // Supabase에서 사용자 등록 가게 추가
+        try {
+            const { data: userStores, error } = await supabase.from('stores').select('*');
+            if (error) {
+                console.error('Supabase select error:', error);
+            } else if (userStores) {
+                userStores.forEach((store) => {
+                    items.push({
+                        title: store.name,
+                        address: store.address,
+                        roadAddress: store.address,
+                        lat: store.lat,
+                        lng: store.lng,
+                        category: '사용자 등록',
+                        link: '',
+                    });
+                });
+            }
+        } catch (err) {
+            console.error('Error fetching user stores:', err);
+        }
+
+        res.json({ items });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
