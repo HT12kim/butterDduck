@@ -124,7 +124,7 @@ app.get('/api/search', async (req, res) => {
 
         const searchResponses = await Promise.all(searchPromises);
 
-        // 확장된 카테고리 키워드 배열
+        // 확장된 카테고리 키워드 배열 (네이버 업종명 포함)
         const allowedCategories = [
             '카페',
             '디저트',
@@ -146,7 +146,17 @@ app.get('/api/search', async (req, res) => {
             'brunch',
             'cake',
             'sandwich',
+            '커피전문점',
+            '음료',
+            '음료점',
+            'tea',
+            'coffee',
+            '커피숍',
         ];
+
+        // 검색어가 카페/디저트/커피 관련이면 카테고리 필터 완화
+        const queryStr = (query || '').toLowerCase();
+        const relaxCategory = allowedCategories.some((cat) => queryStr.includes(cat.toLowerCase()));
 
         let allItems = [];
         const seenAddresses = new Set();
@@ -155,10 +165,10 @@ app.get('/api/search', async (req, res) => {
             if (response.data.items) {
                 response.data.items.forEach((item) => {
                     const cleanAddress = item.roadAddress || item.address;
-                    // 카테고리 문자열을 소문자로 변환 후, 확장 키워드 포함 여부 체크
                     const categoryStr = (item.category || '').toLowerCase();
                     const isAllowed = allowedCategories.some((cat) => categoryStr.includes(cat.toLowerCase()));
-                    if (isAllowed && !seenAddresses.has(cleanAddress)) {
+                    // relaxCategory가 true면 카테고리 무시하고 모두 포함, 아니면 기존 필터 적용
+                    if ((relaxCategory || isAllowed) && !seenAddresses.has(cleanAddress)) {
                         seenAddresses.add(cleanAddress);
                         allItems.push(item);
                     }
