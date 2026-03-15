@@ -412,7 +412,7 @@ function showAddStoreModal() {
     `;
     modal.innerHTML = `
         <div style="background: white; padding: 20px; border-radius: 10px; max-width: 400px; width: 90%;">
-            <h3>새 가게 등록</h3>
+            <h3>새 가게 등록(내가 찾은 버터떡 파는집)</h3>
             <input type="text" id="store-name" placeholder="가게 이름" style="width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px;">
             <div style="display: flex; gap: 10px; margin-bottom: 10px;">
                 <button id="search-store-btn" style="flex: 1 1 0; background: #FFD93D; color: black; border: none; padding: 10px 0; border-radius: 5px; cursor: pointer; font-weight: 600;">검색</button>
