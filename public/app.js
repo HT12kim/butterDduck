@@ -42,6 +42,16 @@ function setupMobileUI() {
     }
 }
 
+function hideOverlay() {
+    const overlay = document.getElementById('loading-overlay');
+    if (overlay) {
+        overlay.style.opacity = '0';
+        setTimeout(() => {
+            overlay.style.display = 'none';
+        }, 300);
+    }
+}
+
 async function initApp() {
     console.log('initApp started');
     setupMobileUI();
@@ -54,6 +64,7 @@ async function initApp() {
 
         if (!config.mapsClientId) {
             alert('Naver Maps Client ID가 설정되지 않았습니다. .env 파일을 확인해주세요.');
+            hideOverlay();
             return;
         }
 
@@ -72,6 +83,7 @@ async function initApp() {
                 console.warn('Geolocation timed out. Initializing with default location.');
                 isInitialized = true;
                 initializeMap(currentLat, currentLng);
+                hideOverlay();
             }
         }, 8000);
 
@@ -84,6 +96,7 @@ async function initApp() {
                     currentLat = position.coords.latitude;
                     currentLng = position.coords.longitude;
                     initializeMap(currentLat, currentLng);
+                    hideOverlay();
                 },
                 (error) => {
                     if (isInitialized) return;
@@ -91,6 +104,7 @@ async function initApp() {
                     clearTimeout(initTimeout);
                     console.warn('Geolocation failed or denied. Using default Seoul center.', error);
                     initializeMap(currentLat, currentLng);
+                    hideOverlay();
                 },
                 { timeout: 5000, enableHighAccuracy: true },
             );
@@ -99,12 +113,11 @@ async function initApp() {
             clearTimeout(initTimeout);
             console.warn("Browser doesn't support geolocation.");
             initializeMap(currentLat, currentLng);
+            hideOverlay();
         }
     } catch (error) {
         console.error('Initialization error:', error);
-        // 에러 발생 시에도 로딩 오버레이는 제거 시도
-        const overlay = document.getElementById('loading-overlay');
-        if (overlay) overlay.style.display = 'none';
+        hideOverlay();
     }
 }
 
@@ -187,15 +200,6 @@ function initializeMap(lat, lng) {
     });
 
     // Always hide loading overlay
-    const hideOverlay = () => {
-        const overlay = document.getElementById('loading-overlay');
-        if (overlay) {
-            overlay.style.opacity = '0';
-            setTimeout(() => {
-                overlay.style.display = 'none';
-            }, 300);
-        }
-    };
     hideOverlay();
 
     searchPlaces('버터떡', lat, lng);
@@ -258,12 +262,13 @@ function displayPlaces(items) {
     items.forEach((item, index) => {
         const btn = document.createElement('button');
         btn.id = 'kakao-share-btn';
-        btn.innerHTML = '<img src="https://developers.kakao.com/assets/img/about/logos/kakaolink/kakaolink_btn_medium.png" alt="카카오톡 공유" style="width:48px; height:48px;">';
+        btn.innerHTML =
+            '<img src="https://developers.kakao.com/assets/img/about/logos/kakaolink/kakaolink_btn_medium.png" alt="카카오톡 공유" style="width:48px; height:48px;">';
         btn.style.background = 'transparent';
         btn.style.border = 'none';
         btn.style.cursor = 'pointer';
         btn.style.pointerEvents = 'auto';
-        btn.onclick = function() {
+        btn.onclick = function () {
             if (window.Kakao && window.Kakao.Link) {
                 window.Kakao.Link.sendDefault({
                     objectType: 'feed',
@@ -271,11 +276,9 @@ function displayPlaces(items) {
                         title: document.title,
                         description: '지금 위치에서 맛집을 공유해보세요!',
                         imageUrl: location.origin + '/image.png',
-                        link: { mobileWebUrl: location.href, webUrl: location.href }
+                        link: { mobileWebUrl: location.href, webUrl: location.href },
                     },
-                    buttons: [
-                        { title: '웹에서 보기', link: { mobileWebUrl: location.href, webUrl: location.href } }
-                    ]
+                    buttons: [{ title: '웹에서 보기', link: { mobileWebUrl: location.href, webUrl: location.href } }],
                 });
             } else {
                 alert('카카오톡 공유 기능을 사용할 수 없습니다.');
@@ -289,6 +292,7 @@ function displayPlaces(items) {
         } else {
             document.body.appendChild(btn);
         }
+    });
 }
 
 async function fetchLikes() {
