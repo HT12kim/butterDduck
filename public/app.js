@@ -89,7 +89,7 @@ async function initApp() {
                     if (isInitialized) return;
                     isInitialized = true;
                     clearTimeout(initTimeout);
-                    console.warn('Geolocation failed or denied. Using default Seoul center.', error);
+                    alert('내 위치를 받아올 수 없습니다. 위치 권한을 허용해주세요.');
                     initializeMap(currentLat, currentLng);
                 },
                 { timeout: 5000, enableHighAccuracy: true },
@@ -97,7 +97,7 @@ async function initApp() {
         } else {
             isInitialized = true;
             clearTimeout(initTimeout);
-            console.warn("Browser doesn't support geolocation.");
+            alert('이 브라우저는 위치 정보를 지원하지 않습니다.');
             initializeMap(currentLat, currentLng);
         }
     } catch (error) {
@@ -534,14 +534,13 @@ function showAddStoreModal() {
     };
 }
 
-// Debugging: Log the query and API response
+// 검색창에서 검색 시 항상 최신 내 위치 사용
 const searchInput = document.getElementById('search-input');
 if (searchInput) {
     searchInput.addEventListener('change', () => {
         const query = searchInput.value.trim();
-        console.log('[DEBUG] 검색어 입력값:', query); // Log user input
         if (query) {
-            searchPlaces(query, currentLat, currentLng);
+            searchPlaces(query, currentLat, currentLng); // 항상 최신 내 위치 사용
         }
     });
 }
