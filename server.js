@@ -253,17 +253,27 @@ app.post('/api/add-store', async (req, res) => {
     if (!name) return res.status(400).json({ error: 'Store name is required' });
 
     try {
-        // Search using Naver Search API
-        const searchResponse = await axios.get('https://openapi.naver.com/v1/search/local.json', {
-            params: { query: `${name} 버터떡`, display: 5 },
-            headers: {
-                'X-Naver-Client-Id': process.env.NAVER_CLIENT_ID,
-                'X-Naver-Client-Secret': process.env.NAVER_CLIENT_SECRET,
-            },
-        });
+        // 다양한 쿼리 조합으로 순차 검색
+        const queries = [name, `${name} 카페`, `${name} 디저트`, `${name} 커피`, `${name} 버터떡`];
+        let foundItem = null;
+        let foundQuery = '';
+        for (const q of queries) {
+            const resp = await axios.get('https://openapi.naver.com/v1/search/local.json', {
+                params: { query: q, display: 5 },
+                headers: {
+                    'X-Naver-Client-Id': process.env.NAVER_CLIENT_ID,
+                    'X-Naver-Client-Secret': process.env.NAVER_CLIENT_SECRET,
+                },
+            });
+            if (resp.data.items && resp.data.items.length > 0) {
+                foundItem = resp.data.items[0];
+                foundQuery = q;
+                break;
+            }
+        }
 
-        if (searchResponse.data.items && searchResponse.data.items.length > 0) {
-            const item = searchResponse.data.items[0];
+        if (foundItem) {
+            const item = foundItem;
             const address = item.roadAddress || item.address;
 
             // Get coordinates
@@ -296,10 +306,12 @@ app.post('/api/add-store', async (req, res) => {
             }
             console.log('Inserted successfully:', data);
 
-            res.json({ success: true, store: data ? data[0] : null });
+            res.json({ success: true, store: data ? data[0] : null, usedQuery: foundQuery });
         } else {
             // 사용자 친화적 메시지
-            res.status(404).json({ error: '디저트 가게 중에 검색결과가 없습니다. 가게명을 정확히 입력해 주세요.' });
+            res.status(404).json({
+                error: '디저트/카페/커피 가게 중에 검색결과가 없습니다. 가게명을 정확히 입력해 주세요.',
+            });
         }
     } catch (error) {
         console.error('Error adding store:', error);
