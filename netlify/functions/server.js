@@ -211,40 +211,65 @@ app.get('/api/search', async (req, res) => {
             });
         }
 
-        // Supabase에서 사용자 등록 가게 추가
+        // Supabase에서 사용자 등록 가게 추가 (enrichedItems에 push하지 않고 별도 배열에 저장)
         let userStores = null;
+        let userStoreItems = [];
         try {
             const { data, error } = await supabase.from('stores').select('*');
             if (error) {
                 console.error('Supabase select error:', error);
             } else if (data) {
                 userStores = data;
-                data.forEach((store) => {
-                    enrichedItems.push({
-                        title: store.name,
-                        address: store.address,
-                        roadAddress: store.address,
-                        lat: store.lat,
-                        lng: store.lng,
-                        category: '사용자 등록',
-                        link: '',
-                    });
-                });
+                userStoreItems = data.map((store) => ({
+                    title: store.name,
+                    address: store.address,
+                    roadAddress: store.address,
+                    lat: store.lat,
+                    lng: store.lng,
+                    category: '사용자 등록',
+                    link: '',
+                }));
             }
         } catch (err) {
             console.error('Error fetching user stores:', err);
         }
 
+        // 네이버+사용자 등록 가게 모두 5km 반경 필터링
+        let allItemsForRadius = enrichedItems.concat(userStoreItems);
+        if (userLat !== null && userLng !== null) {
+            const getDistanceKm = (lat1, lng1, lat2, lng2) => {
+                const R = 6371;
+                const dLat = ((lat2 - lat1) * Math.PI) / 180;
+                const dLng = ((lng2 - lng1) * Math.PI) / 180;
+                const a =
+                    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                    Math.cos((lat1 * Math.PI) / 180) *
+                        Math.cos((lat2 * Math.PI) / 180) *
+                        Math.sin(dLng / 2) *
+                        Math.sin(dLng / 2);
+                return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            };
+            allItemsForRadius = allItemsForRadius.filter((item) => {
+                if (item.lat && item.lng) {
+                    const dist = getDistanceKm(userLat, userLng, item.lat, item.lng);
+                    item.distanceKm = dist;
+                    return dist <= 5;
+                }
+                return false;
+            });
+        }
+
         res.json({
-            items: filteredByRadius,
+            items: allItemsForRadius,
             _debug: {
                 naverItems: totalNaverItems,
                 filteredItems: allItems.length,
                 enrichedItems: enrichedItems.length,
-                filteredByRadius: filteredByRadius.length,
+                filteredByRadius: allItemsForRadius.length,
                 supabaseUserStores: userStores ? userStores.length : null,
             },
         });
+        return; // 기존 res.json 및 이후 코드 실행 방지
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
