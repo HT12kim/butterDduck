@@ -430,15 +430,21 @@ function showAddStoreModal() {
     };
 
     document.getElementById('search-store-btn').onclick = async () => {
-        const name = document.getElementById('store-name').value;
+        const nameInput = document.getElementById('store-name');
+        const name = nameInput ? nameInput.value : '';
         const resultsDiv = document.getElementById('search-results');
         resultsDiv.innerHTML = '';
-        if (!name) return alert('가게 이름을 입력하세요.');
+        console.log('[DEBUG] 검색어 입력값:', name);
+        if (!name) {
+            alert('가게 이름을 입력하세요.');
+            return;
+        }
 
         try {
             // Naver API로 후보 검색 (백엔드 /api/search 활용)
             const response = await fetch(`/api/search?query=${encodeURIComponent(name)}`);
             const data = await response.json();
+            console.log('[DEBUG] /api/search 응답:', data);
             if (!data.items || data.items.length === 0) {
                 resultsDiv.innerHTML = '<p style="color:#888;">검색 결과가 없습니다.</p>';
                 return;
