@@ -253,117 +253,102 @@ app.post('/api/add-store', async (req, res) => {
     if (!name) return res.status(400).json({ error: 'Store name is required' });
 
     try {
-        // 다양한 쿼리 조합으로 순차 검색
-        const queries = [name, `${name} 카페`, `${name} 디저트`, `${name} 커피`, `${name} 버터떡`];
-        let foundItem = null;
-        let foundQuery = '';
-        try {
-            // 확장 업종 키워드(검색 필터) 정의
-            const allowedCategories = [
-                '카페', '디저트', '빵집', '후식', '커피', '까페', '베이커리',
-                '제과점', '브런치', '케이크', '샌드위치', '파티쉐', '디저트카페',
-                'dessert', 'cafe', 'bakery', 'patisserie', 'brunch', 'cake', 'sandwich',
-                '커피전문점', '음료', '음료점', 'tea', 'coffee', '커피숍'
-            ];
+        // 확장 업종 키워드(검색 필터) 정의
+        const allowedCategories = [
+            '카페',
+            '디저트',
+            '빵집',
+            '후식',
+            '커피',
+            '까페',
+            '베이커리',
+            '제과점',
+            '브런치',
+            '케이크',
+            '샌드위치',
+            '파티쉐',
+            '디저트카페',
+            'dessert',
+            'cafe',
+            'bakery',
+            'patisserie',
+            'brunch',
+            'cake',
+            'sandwich',
+            '커피전문점',
+            '음료',
+            '음료점',
+            'tea',
+            'coffee',
+            '커피숍',
+        ];
 
-            // 네이버 검색: name 단독으로만 검색
-            const resp = await axios.get('https://openapi.naver.com/v1/search/local.json', {
-                params: { query: name, display: 10 },
-                headers: {
-                    'X-Naver-Client-Id': process.env.NAVER_CLIENT_ID,
-                    'X-Naver-Client-Secret': process.env.NAVER_CLIENT_SECRET,
-                },
+        // 네이버 검색: name 단독으로만 검색
+        const resp = await axios.get('https://openapi.naver.com/v1/search/local.json', {
+            params: { query: name, display: 10 },
+            headers: {
+                'X-Naver-Client-Id': process.env.NAVER_CLIENT_ID,
+                'X-Naver-Client-Secret': process.env.NAVER_CLIENT_SECRET,
+            },
+        });
+
+        // 업종 필터 적용
+        let filtered = [];
+        if (resp.data.items && resp.data.items.length > 0) {
+            filtered = resp.data.items.filter((item) => {
+                const categoryStr = (item.category || '').toLowerCase();
+                return allowedCategories.some((cat) => categoryStr.includes(cat.toLowerCase()));
             });
+        }
 
-            // 업종 필터 적용
-            let filtered = [];
-            if (resp.data.items && resp.data.items.length > 0) {
-                filtered = resp.data.items.filter(item => {
-                    const categoryStr = (item.category || '').toLowerCase();
-                    return allowedCategories.some(cat => categoryStr.includes(cat.toLowerCase()));
-                });
+        if (filtered.length > 0) {
+            // 첫 번째 결과만 등록
+            const item = filtered[0];
+            const address = item.roadAddress || item.address;
+
+            // Get coordinates
+            let coords = await getGeocoding(address);
+            if (!coords) {
+                if (item.mapy && item.mapx) {
+                    coords = {
+                        lat: parseFloat(item.mapy) / 1e7,
+                        lng: parseFloat(item.mapx) / 1e7,
+                    };
+                    console.warn('Geocoding failed, using Naver API coordinates for:', address, coords);
+                } else {
+                    coords = { lat: 37.5665, lng: 126.978 };
+                    console.warn('Geocoding and Naver API coordinates both missing, using default for:', address);
+                }
             }
 
-            if (filtered.length > 0) {
-                // 첫 번째 결과만 등록
-                const item = filtered[0];
-                const address = item.roadAddress || item.address;
+            // Insert into Supabase
+            console.log('Inserting into Supabase:', { name, address, lat: coords.lat, lng: coords.lng });
+            const { data, error } = await supabase
+                .from('stores')
+                .insert([{ name, address, lat: coords.lat, lng: coords.lng }]);
 
-                // Get coordinates
-                let coords = await getGeocoding(address);
-                if (!coords) {
-                    try {
-                        // 확장 업종 키워드(검색 필터) 정의
-                        const allowedCategories = [
-                            '카페', '디저트', '빵집', '후식', '커피', '까페', '베이커리',
-                            '제과점', '브런치', '케이크', '샌드위치', '파티쉐', '디저트카페',
-                            'dessert', 'cafe', 'bakery', 'patisserie', 'brunch', 'cake', 'sandwich',
-                            '커피전문점', '음료', '음료점', 'tea', 'coffee', '커피숍'
-                        ];
+            if (error) {
+                console.error('Supabase insert error:', error);
+                // 사용자 친화적 메시지
+                return res
+                    .status(500)
+                    .json({ error: 'DB 저장에 실패했습니다. 이미 등록된 가게이거나, 서버에 문제가 있습니다.' });
+            }
+            console.log('Inserted successfully:', data);
 
-                        // 네이버 검색: name 단독으로만 검색
-                        const resp = await axios.get('https://openapi.naver.com/v1/search/local.json', {
-                            params: { query: name, display: 10 },
-                            headers: {
-                                'X-Naver-Client-Id': process.env.NAVER_CLIENT_ID,
-                                'X-Naver-Client-Secret': process.env.NAVER_CLIENT_SECRET,
-                            },
-                        });
-
-                        // 업종 필터 적용
-                        let filtered = [];
-                        if (resp.data.items && resp.data.items.length > 0) {
-                            filtered = resp.data.items.filter(item => {
-                                const categoryStr = (item.category || '').toLowerCase();
-                                return allowedCategories.some(cat => categoryStr.includes(cat.toLowerCase()));
-                            });
-                        }
-
-                        if (filtered.length > 0) {
-                            // 첫 번째 결과만 등록
-                            const item = filtered[0];
-                            const address = item.roadAddress || item.address;
-
-                            // Get coordinates
-                            let coords = await getGeocoding(address);
-                            if (!coords) {
-                                if (item.mapy && item.mapx) {
-                                    coords = {
-                                        lat: parseFloat(item.mapy) / 1e7,
-                                        lng: parseFloat(item.mapx) / 1e7,
-                                    };
-                                    console.warn('Geocoding failed, using Naver API coordinates for:', address, coords);
-                                } else {
-                                    coords = { lat: 37.5665, lng: 126.978 };
-                                    console.warn('Geocoding and Naver API coordinates both missing, using default for:', address);
-                                }
-                            }
-
-                            // Insert into Supabase
-                            console.log('Inserting into Supabase:', { name, address, lat: coords.lat, lng: coords.lng });
-                            const { data, error } = await supabase
-                                .from('stores')
-                                .insert([{ name, address, lat: coords.lat, lng: coords.lng }]);
-
-                            if (error) {
-                                console.error('Supabase insert error:', error);
-                                // 사용자 친화적 메시지
-                                return res
-                                    .status(500)
-                                    .json({ error: 'DB 저장에 실패했습니다. 이미 등록된 가게이거나, 서버에 문제가 있습니다.' });
-                            }
-                            console.log('Inserted successfully:', data);
-
-                            res.json({ success: true, store: data ? data[0] : null });
-                        } else {
-                            // 사용자 친화적 메시지
-                            res.status(404).json({ error: '카페/디저트/베이커리 등 관련 업종 중에 검색결과가 없습니다. 가게명을 정확히 입력해 주세요.' });
-                        }
-                    } catch (error) {
-                        console.error('Error adding store:', error);
-                        // 네이버 API 인증 오류 등 상세 안내
-                        if (error.response && error.response.status === 401) {
-                            return res.status(500).json({ error: '네이버 API 인증에 실패했습니다. 관리자에게 문의해 주세요.' });
-                        }
-                        res.status(500).json({ error: '알 수 없는 오류로 등록에 실패했습니다. 잠시 후 다시 시도해 주세요.' });
-                    }
+            res.json({ success: true, store: data ? data[0] : null });
+        } else {
+            // 사용자 친화적 메시지
+            res.status(404).json({
+                error: '카페/디저트/베이커리 등 관련 업종 중에 검색결과가 없습니다. 가게명을 정확히 입력해 주세요.',
+            });
+        }
+    } catch (error) {
+        console.error('Error adding store:', error);
+        // 네이버 API 인증 오류 등 상세 안내
+        if (error.response && error.response.status === 401) {
+            return res.status(500).json({ error: '네이버 API 인증에 실패했습니다. 관리자에게 문의해 주세요.' });
+        }
+        res.status(500).json({ error: '알 수 없는 오류로 등록에 실패했습니다. 잠시 후 다시 시도해 주세요.' });
+    }
+});
