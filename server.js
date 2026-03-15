@@ -276,7 +276,15 @@ app.get('/api/search', async (req, res) => {
             console.error('Error fetching user stores:', err);
         }
 
-        res.json({ items: enrichedItems });
+        res.json({
+            items: enrichedItems,
+            _debug: {
+                naverItems: totalNaverItems,
+                filteredItems: allItems.length,
+                enrichedItems: enrichedItems.length,
+                supabaseUserStores: typeof userStores !== 'undefined' && userStores ? userStores.length : null,
+            },
+        });
     } catch (error) {
         console.error('Error fetching data:', error.response ? error.response.data : error.message);
         res.status(500).json({ error: 'Failed to fetch or process search results' });
