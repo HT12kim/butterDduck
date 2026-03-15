@@ -176,6 +176,13 @@ app.get('/api/search', async (req, res) => {
         let allItems = [];
         const seenAddresses = new Set();
 
+        // 네이버 API 원본 items 개수 로그
+        let totalNaverItems = 0;
+        searchResponses.forEach((response) => {
+            if (response.data.items) totalNaverItems += response.data.items.length;
+        });
+        console.log(`[DEBUG] 네이버 API 원본 items 총 개수:`, totalNaverItems);
+
         // 1차: 업종 필터 + 상호명 포함(프랜차이즈면 무시)
         searchResponses.forEach((response) => {
             if (response.data.items) {
@@ -208,9 +215,11 @@ app.get('/api/search', async (req, res) => {
             });
         }
 
+        console.log(`[DEBUG] 네이버 API 필터 후 allItems 개수:`, allItems.length);
         console.log(`Found ${allItems.length} unique stores. Enriching with coordinates...`);
 
         // Enrich with coordinates using Geocoding (as requested)
+
         const enrichedItemsPromises = allItems.map(async (item) => {
             let lat = null;
             let lng = null;
@@ -240,14 +249,17 @@ app.get('/api/search', async (req, res) => {
         });
 
         const enrichedItems = (await Promise.all(enrichedItemsPromises)).filter((item) => item !== null);
+        console.log(`[DEBUG] 좌표 변환 후 enrichedItems 개수:`, enrichedItems.length);
 
         // Add user-added stores from Supabase
+
         try {
             const { data: userStores, error } = await supabase.from('stores').select('*');
 
             if (error) {
                 console.error('Supabase select error:', error);
             } else if (userStores) {
+                console.log(`[DEBUG] Supabase 사용자 등록 가게 개수:`, userStores.length);
                 userStores.forEach((store) => {
                     enrichedItems.push({
                         title: store.name,
