@@ -431,27 +431,69 @@ function showAddStoreModal() {
 
     document.getElementById('search-store-btn').onclick = async () => {
         const name = document.getElementById('store-name').value;
+        const resultsDiv = document.getElementById('search-results');
+        resultsDiv.innerHTML = '';
         if (!name) return alert('가게 이름을 입력하세요.');
 
         try {
-            const response = await fetch('/api/add-store', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name }),
-            });
-            const result = await response.json();
-            if (result.success) {
-                alert('가게가 등록되었습니다!');
-                if (document.body.contains(modal)) {
-                    document.body.removeChild(modal);
-                }
-                // Refresh map
-                searchPlaces('버터떡', currentLat, currentLng);
-            } else {
-                alert('등록 실패: ' + result.error);
+            // Naver API로 후보 검색 (백엔드 /api/search 활용)
+            const response = await fetch(`/api/search?query=${encodeURIComponent(name)}`);
+            const data = await response.json();
+            if (!data.items || data.items.length === 0) {
+                resultsDiv.innerHTML = '<p style="color:#888;">검색 결과가 없습니다.</p>';
+                return;
             }
+            // 거리 계산 및 정렬
+            const items = data.items
+                .map((item) => {
+                    const dist = getDistanceKm(currentLat, currentLng, item.lat, item.lng);
+                    return { ...item, distanceKm: dist };
+                })
+                .sort((a, b) => a.distanceKm - b.distanceKm);
+
+            // 목록 렌더링
+            resultsDiv.innerHTML = items
+                .map(
+                    (item, idx) => `
+                <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-bottom:1px solid #eee; gap:10px;">
+                    <div style="flex:1; min-width:0;">
+                        <div style="font-weight:600; color:#222; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${item.title.replace(/<[^>]*>?/gm, '')}</div>
+                        <div style="font-size:12px; color:#666; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${item.roadAddress || item.address}</div>
+                        <div style="font-size:11px; color:#888;">📍 ${item.distanceKm < 1 ? (item.distanceKm * 1000).toFixed(0) + 'm' : item.distanceKm.toFixed(2) + 'km'}</div>
+                    </div>
+                    <button data-idx="${idx}" style="background:#FFD93D; color:black; border:none; border-radius:5px; padding:7px 14px; font-weight:600; cursor:pointer; flex-shrink:0;">등록</button>
+                </div>
+            `,
+                )
+                .join('');
+
+            // 등록 버튼 이벤트
+            Array.from(resultsDiv.querySelectorAll('button[data-idx]')).forEach((btn) => {
+                btn.onclick = async (e) => {
+                    const idx = parseInt(btn.getAttribute('data-idx'), 10);
+                    const selected = items[idx];
+                    // 실제 DB 등록
+                    try {
+                        const regRes = await fetch('/api/add-store', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ name: selected.title.replace(/<[^>]*>?/gm, '') }),
+                        });
+                        const regResult = await regRes.json();
+                        if (regResult.success) {
+                            alert('가게가 등록되었습니다!');
+                            if (document.body.contains(modal)) document.body.removeChild(modal);
+                            searchPlaces('버터떡', currentLat, currentLng);
+                        } else {
+                            alert('등록 실패: ' + regResult.error);
+                        }
+                    } catch (err) {
+                        alert('오류 발생: ' + err.message);
+                    }
+                };
+            });
         } catch (error) {
-            alert('오류 발생: ' + error.message);
+            resultsDiv.innerHTML = '<p style="color:#e00;">검색 중 오류가 발생했습니다.</p>';
         }
     };
 }
