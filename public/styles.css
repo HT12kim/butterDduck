@@ -31,17 +31,18 @@ body {
     color: var(--text-main);
     height: 100vh;
     overflow: hidden;
-    /* iOS notch 대응: 상단 여백 추가 */
-    padding-top: env(safe-area-inset-top, 20px);
+}
+
+#app {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
 }
 
 header {
     background: white;
     /* iOS notch 대응: safe-area-inset-top 사용, 기본값 20px */
-    padding-top: calc(env(safe-area-inset-top, 20px) + 0.5rem);
-    padding-right: 2rem;
-    padding-bottom: 1rem;
-    padding-left: 2rem;
+    padding: calc(env(safe-area-inset-top, 20px) + 0.5rem) 2rem 1rem 2rem;
     z-index: 100;
     border-bottom: 2px solid var(--primary-soft);
 }
