@@ -260,38 +260,26 @@ function displayPlaces(items) {
 
     listContainer.innerHTML = '';
     items.forEach((item, index) => {
-        const btn = document.createElement('button');
-        btn.id = 'kakao-share-btn';
-        btn.innerHTML =
-            '<img src="https://developers.kakao.com/assets/img/about/logos/kakaolink/kakaolink_btn_medium.png" alt="카카오톡 공유" style="width:48px; height:48px;">';
-        btn.style.background = 'transparent';
-        btn.style.border = 'none';
-        btn.style.cursor = 'pointer';
-        btn.style.pointerEvents = 'auto';
-        btn.onclick = function () {
-            if (window.Kakao && window.Kakao.Link) {
-                window.Kakao.Link.sendDefault({
-                    objectType: 'feed',
-                    content: {
-                        title: document.title,
-                        description: '지금 위치에서 맛집을 공유해보세요!',
-                        imageUrl: location.origin + '/image.png',
-                        link: { mobileWebUrl: location.href, webUrl: location.href },
-                    },
-                    buttons: [{ title: '웹에서 보기', link: { mobileWebUrl: location.href, webUrl: location.href } }],
-                });
-            } else {
-                alert('카카오톡 공유 기능을 사용할 수 없습니다.');
-            }
+        const div = document.createElement('div');
+        div.className = 'place-item';
+        div.innerHTML = `
+            <div class="place-info">
+                <h4 class="place-title">${item.title.replace(/<[^>]*>?/gm, '')}</h4>
+                <p class="place-address">${item.roadAddress || item.address}</p>
+                <p class="place-distance">📍 ${item.distanceKm < 1 ? (item.distanceKm * 1000).toFixed(0) + 'm' : item.distanceKm.toFixed(2) + 'km'}</p>
+            </div>
+            <button class="like-button" id="like-btn-${index}" style="background:#FFD93D; color:black; border:none; border-radius:5px; padding:5px 10px; font-weight:600; cursor:pointer;">
+                <span class="like-count" id="like-count-${index}">0</span> 좋아요
+            </button>
+        `;
+        listContainer.appendChild(div);
+
+        // Like button event
+        const likeButton = document.getElementById(`like-btn-${index}`);
+        const likeCount = document.getElementById(`like-count-${index}`);
+        likeButton.onclick = () => {
+            handleLike(item.id, likeCount);
         };
-        // 광고 위쪽 영역에 버튼 추가
-        const area = document.getElementById('kakao-share-btn-area');
-        if (area) {
-            area.innerHTML = '';
-            area.appendChild(btn);
-        } else {
-            document.body.appendChild(btn);
-        }
     });
 }
 
@@ -421,61 +409,6 @@ function showInfoWindow(marker, item) {
 }
 
 document.addEventListener('DOMContentLoaded', initApp);
-
-// 카카오톡 공유 버튼 생성
-function createKakaoShareButton() {
-    const btn = document.createElement('button');
-    btn.id = 'kakao-share-btn';
-    btn.innerHTML =
-        '<img src="https://developers.kakao.com/assets/img/about/logos/kakaolink/kakaolink_btn_medium.png" alt="카카오톡 공유" style="width:48px; height:48px;">';
-    btn.style.background = 'transparent';
-    btn.style.border = 'none';
-    btn.style.cursor = 'pointer';
-    btn.style.pointerEvents = 'auto';
-    btn.onclick = function () {
-        if (window.Kakao && window.Kakao.Link) {
-            window.Kakao.Link.sendDefault({
-                objectType: 'feed',
-                content: {
-                    title: document.title,
-                    description: '지금 위치에서 맛집을 공유해보세요!',
-                    imageUrl: location.origin + '/image.png',
-                    link: { mobileWebUrl: location.href, webUrl: location.href },
-                },
-                buttons: [{ title: '웹에서 보기', link: { mobileWebUrl: location.href, webUrl: location.href } }],
-            });
-        } else {
-            alert('카카오톡 공유 기능을 사용할 수 없습니다.');
-        }
-    };
-    // 광고 위쪽 영역에 버튼 추가
-    const area = document.getElementById('kakao-share-btn-area');
-    if (area) {
-        area.innerHTML = '';
-        area.appendChild(btn);
-    } else {
-        document.body.appendChild(btn);
-    }
-}
-
-// 카카오 SDK 로드 및 버튼 생성
-function loadKakaoSdkAndButton() {
-    if (!window.Kakao) {
-        const script = document.createElement('script');
-        script.src = 'https://developers.kakao.com/sdk/js/kakao.min.js';
-        script.onload = function () {
-            if (window.Kakao && !window.Kakao.isInitialized()) {
-                window.Kakao.init('29715a75759d24bb0c78b8571b830651'); // 여기에 본인 JS키 입력
-            }
-            createKakaoShareButton();
-        };
-        document.head.appendChild(script);
-    } else {
-        createKakaoShareButton();
-    }
-}
-
-document.addEventListener('DOMContentLoaded', loadKakaoSdkAndButton);
 
 function showAddStoreModal() {
     const modal = document.createElement('div');
