@@ -42,16 +42,6 @@ function setupMobileUI() {
     }
 }
 
-function hideOverlay() {
-    const overlay = document.getElementById('loading-overlay');
-    if (overlay) {
-        overlay.style.opacity = '0';
-        setTimeout(() => {
-            overlay.style.display = 'none';
-        }, 300);
-    }
-}
-
 async function initApp() {
     console.log('initApp started');
     setupMobileUI();
@@ -64,7 +54,6 @@ async function initApp() {
 
         if (!config.mapsClientId) {
             alert('Naver Maps Client ID가 설정되지 않았습니다. .env 파일을 확인해주세요.');
-            hideOverlay();
             return;
         }
 
@@ -83,7 +72,6 @@ async function initApp() {
                 console.warn('Geolocation timed out. Initializing with default location.');
                 isInitialized = true;
                 initializeMap(currentLat, currentLng);
-                hideOverlay();
             }
         }, 8000);
 
@@ -96,7 +84,6 @@ async function initApp() {
                     currentLat = position.coords.latitude;
                     currentLng = position.coords.longitude;
                     initializeMap(currentLat, currentLng);
-                    hideOverlay();
                 },
                 (error) => {
                     if (isInitialized) return;
@@ -104,7 +91,6 @@ async function initApp() {
                     clearTimeout(initTimeout);
                     console.warn('Geolocation failed or denied. Using default Seoul center.', error);
                     initializeMap(currentLat, currentLng);
-                    hideOverlay();
                 },
                 { timeout: 5000, enableHighAccuracy: true },
             );
@@ -113,11 +99,12 @@ async function initApp() {
             clearTimeout(initTimeout);
             console.warn("Browser doesn't support geolocation.");
             initializeMap(currentLat, currentLng);
-            hideOverlay();
         }
     } catch (error) {
         console.error('Initialization error:', error);
-        hideOverlay();
+        // 에러 발생 시에도 로딩 오버레이는 제거 시도
+        const overlay = document.getElementById('loading-overlay');
+        if (overlay) overlay.style.display = 'none';
     }
 }
 
@@ -200,6 +187,15 @@ function initializeMap(lat, lng) {
     });
 
     // Always hide loading overlay
+    const hideOverlay = () => {
+        const overlay = document.getElementById('loading-overlay');
+        if (overlay) {
+            overlay.style.opacity = '0';
+            setTimeout(() => {
+                overlay.style.display = 'none';
+            }, 300);
+        }
+    };
     hideOverlay();
 
     searchPlaces('버터떡', lat, lng);
@@ -263,24 +259,32 @@ function displayPlaces(items) {
         const div = document.createElement('div');
         div.className = 'place-item';
         div.innerHTML = `
-            <div class="place-info">
-                <h4 class="place-title">${item.title.replace(/<[^>]*>?/gm, '')}</h4>
-                <p class="place-address">${item.roadAddress || item.address}</p>
-                <p class="place-distance">📍 ${item.distanceKm < 1 ? (item.distanceKm * 1000).toFixed(0) + 'm' : item.distanceKm.toFixed(2) + 'km'}</p>
-            </div>
-            <button class="like-button" id="like-btn-${index}" style="background:#FFD93D; color:black; border:none; border-radius:5px; padding:5px 10px; font-weight:600; cursor:pointer;">
-                <span class="like-count" id="like-count-${index}">0</span> 좋아요
-            </button>
+            <span class="category">${item.category}</span>
+            <h3>${item.title.replace(/<[^>]*>?/gm, '')}</h3>
+            <p class="address">${item.roadAddress || item.address}</p>
+            <p class="distance">📍 ${
+                item.distanceKm < 1 ? (item.distanceKm * 1000).toFixed(0) + 'm' : item.distanceKm.toFixed(2) + 'km'
+            } (내 위치 기준)</p>
         `;
-        listContainer.appendChild(div);
-
-        // Like button event
-        const likeButton = document.getElementById(`like-btn-${index}`);
-        const likeCount = document.getElementById(`like-count-${index}`);
-        likeButton.onclick = () => {
-            handleLike(item.id, likeCount);
+        div.onclick = () => {
+            if (!map || typeof naver === 'undefined') return;
+            const latlng = new naver.maps.LatLng(item.lat, item.lng);
+            map.panTo(latlng);
+            showInfoWindow(markers[index], item);
         };
+        listContainer.appendChild(div);
     });
+}
+
+// Simple hash function for unique store ID
+function getStoreId(item) {
+    const str = (item.title + item.address).replace(/\s+/g, '');
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        hash = (hash << 5) - hash + str.charCodeAt(i);
+        hash |= 0;
+    }
+    return 'store_' + Math.abs(hash);
 }
 
 async function fetchLikes() {
@@ -410,6 +414,7 @@ function showInfoWindow(marker, item) {
 
 document.addEventListener('DOMContentLoaded', initApp);
 
+// 카카오톡 공유 버튼 생성
 function showAddStoreModal() {
     const modal = document.createElement('div');
     modal.style.cssText = `
@@ -520,4 +525,15 @@ function showAddStoreModal() {
             resultsDiv.innerHTML = '<p style="color:#e00;">검색 중 오류가 발생했습니다.</p>';
         }
     };
+}
+
+// Modify the searchPlaces call to use dynamic user input
+const searchInput = document.getElementById('search-input');
+if (searchInput) {
+    searchInput.addEventListener('change', () => {
+        const query = searchInput.value.trim();
+        if (query) {
+            searchPlaces(query, currentLat, currentLng);
+        }
+    });
 }
