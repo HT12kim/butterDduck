@@ -185,6 +185,19 @@ app.post('/api/add-store', async (req, res) => {
                 }
             }
 
+            // 중복 체크: 주소+좌표로 stores 테이블에 이미 등록된 가게가 있는지 확인
+            const { data: existStores, error: existError } = await supabase
+                .from('stores')
+                .select('*')
+                .or(`address.eq.${address},and(lat.eq.${coords.lat},lng.eq.${coords.lng})`);
+
+            if (existError) {
+                return res.status(500).json({ error: 'DB 중복 체크 중 오류가 발생했습니다.' });
+            }
+            if (existStores && existStores.length > 0) {
+                return res.status(409).json({ error: '이미 등록된 가게입니다.' });
+            }
+
             // Supabase에 저장
             const { data, error } = await supabase
                 .from('stores')

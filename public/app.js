@@ -422,7 +422,9 @@ function showAddStoreModal() {
     document.body.appendChild(modal);
 
     document.getElementById('close-modal-btn').onclick = () => {
-        document.body.removeChild(modal);
+        if (document.body.contains(modal)) {
+            document.body.removeChild(modal);
+        }
     };
 
     document.getElementById('search-store-btn').onclick = async () => {
@@ -438,7 +440,9 @@ function showAddStoreModal() {
             const result = await response.json();
             if (result.success) {
                 alert('가게가 등록되었습니다!');
-                document.body.removeChild(modal);
+                if (document.body.contains(modal)) {
+                    document.body.removeChild(modal);
+                }
                 // Refresh map
                 searchPlaces('버터떡', currentLat, currentLng);
             } else {
