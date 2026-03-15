@@ -232,7 +232,10 @@ async function searchPlaces(query, lat, lng) {
                     const dist = getDistanceKm(lat, lng, item.lat, item.lng);
                     return { ...item, distanceKm: dist };
                 })
-                .filter((item) => item.distanceKm <= RADIUS_KM)
+                .filter((item) => {
+                    const matchesQuery = item.title.includes(query) || item.address.includes(query);
+                    return matchesQuery && item.distanceKm <= RADIUS_KM;
+                })
                 .sort((a, b) => a.distanceKm - b.distanceKm);
 
             console.log('[DEBUG] 필터링된 데이터:', filtered); // Log filtered results
