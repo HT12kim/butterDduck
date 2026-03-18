@@ -1,8 +1,8 @@
 .custom-marker {
     position: relative;
-    width: 31px;
-    height: 31px;
-    overflow: visible; /* 투명영역 잘림 방지 */
+    width: 40px;
+    height: 40px;
+    overflow: visible;
 }
 :root {
     --primary: #ffd93d;
@@ -305,11 +305,12 @@ main {
 /* Custom Marker Styles */
 .custom-marker {
     position: relative;
-    width: 44px;
-    height: 44px;
+    width: 40px;
+    height: 40px;
     cursor: pointer;
     transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     background: transparent;
+    overflow: visible;
 }
 
 .custom-marker:hover {
@@ -330,20 +331,20 @@ main {
 
 .like-badge {
     position: absolute;
-    top: -4px;
-    right: -4px;
-    background: var(--accent);
+    top: -6px;
+    right: -6px;
+    background: #e53935;
     color: white;
     font-size: 11px;
     font-weight: 800;
-    min-width: 18px;
-    height: 18px;
+    min-width: 20px;
+    height: 20px;
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    border: 2.5px solid white;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    border: 2px solid white;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
     box-sizing: border-box;
     pointer-events: none;
     animation: badge-pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);

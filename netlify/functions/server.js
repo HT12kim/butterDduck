@@ -1,38 +1,16 @@
 const express = require('express');
 const serverless = require('serverless-http');
 const axios = require('axios');
-const path = require('path');
-const fs = require('fs');
 
-// Supabase 연동
 const { createClient } = require('@supabase/supabase-js');
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 const app = express();
-const LIKES_FILE = '/tmp/likes.json'; // Netlify allows writing to /tmp in some environments, but for truly serverless, consider a DB.
-
-// Ensure likes file exists in /tmp
-if (!fs.existsSync(LIKES_FILE)) {
-    fs.writeFileSync(LIKES_FILE, JSON.stringify({}));
-}
-
-function getLikesData() {
-    try {
-        return JSON.parse(fs.readFileSync(LIKES_FILE, 'utf-8'));
-    } catch (e) {
-        return {};
-    }
-}
-
-function saveLikesData(data) {
-    fs.writeFileSync(LIKES_FILE, JSON.stringify(data, null, 2));
-}
-
 app.use(express.json());
 
-// Helper function to get Geocoding
+// Geocoding 헬퍼
 async function getGeocoding(address) {
     try {
         const response = await axios.get('https://naveropenapi.apigw.ntruss.com/map-geocode/v2/geocode', {
@@ -52,15 +30,23 @@ async function getGeocoding(address) {
     return null;
 }
 
-// API Routes
+// ============================================================
+// 검색 API: 지도 화면(bounds) 기반으로 "버터떡" 키워드 포함 가게 검색
+// ============================================================
 app.get('/api/search', async (req, res) => {
     try {
-        const { query, lat, lng } = req.query;
+        const { query, lat, lng, swLat, swLng, neLat, neLng } = req.query;
         if (!query) return res.status(400).json({ error: 'Query required' });
-        const userLat = lat ? parseFloat(lat) : null;
-        const userLng = lng ? parseFloat(lng) : null;
 
-        // 검색 쿼리 변형
+        const centerLat = lat ? parseFloat(lat) : null;
+        const centerLng = lng ? parseFloat(lng) : null;
+        const bSwLat = swLat ? parseFloat(swLat) : null;
+        const bSwLng = swLng ? parseFloat(swLng) : null;
+        const bNeLat = neLat ? parseFloat(neLat) : null;
+        const bNeLng = neLng ? parseFloat(neLng) : null;
+        const hasBounds = bSwLat !== null && bSwLng !== null && bNeLat !== null && bNeLng !== null;
+
+        // 네이버 검색 쿼리 변형
         const queries = [query, `${query} 카페`, `${query} 맛집`, `${query} 파는곳`];
         const searchPromises = queries.map((q) =>
             axios.get('https://openapi.naver.com/v1/search/local.json', {
@@ -71,10 +57,9 @@ app.get('/api/search', async (req, res) => {
                 },
             }),
         );
-
         const searchResponses = await Promise.all(searchPromises);
 
-        // 업종/상호명 필터 및 디버그 정보
+        // 카테고리 / 프랜차이즈 필터
         const allowedCategories = [
             '카페',
             '디저트',
@@ -123,12 +108,7 @@ app.get('/api/search', async (req, res) => {
 
         let allItems = [];
         const seenAddresses = new Set();
-        let totalNaverItems = 0;
-        searchResponses.forEach((response) => {
-            if (response.data.items) totalNaverItems += response.data.items.length;
-        });
 
-        // 1차: 업종 필터 + 상호명 포함(프랜차이즈면 무시)
         searchResponses.forEach((response) => {
             if (response.data.items) {
                 response.data.items.forEach((item) => {
@@ -136,8 +116,8 @@ app.get('/api/search', async (req, res) => {
                     const categoryStr = (item.category || '').toLowerCase();
                     const titleStr = (item.title || '').replace(/<[^>]*>?/gm, '').toLowerCase();
                     const isAllowed = allowedCategories.some((cat) => categoryStr.includes(cat.toLowerCase()));
-                    const isNameInTitleOrCategory = titleStr.includes(queryStr) || categoryStr.includes(queryStr);
-                    if ((isFranchise || isAllowed || isNameInTitleOrCategory) && !seenAddresses.has(cleanAddress)) {
+                    const isNameMatch = titleStr.includes(queryStr) || categoryStr.includes(queryStr);
+                    if ((isFranchise || isAllowed || isNameMatch) && !seenAddresses.has(cleanAddress)) {
                         seenAddresses.add(cleanAddress);
                         allItems.push(item);
                     }
@@ -145,7 +125,6 @@ app.get('/api/search', async (req, res) => {
             }
         });
 
-        // 2차: 결과가 0개면 업종 필터 없이 한 번 더(중복 주소는 여전히 제거)
         if (allItems.length === 0) {
             searchResponses.forEach((response) => {
                 if (response.data.items) {
@@ -161,202 +140,228 @@ app.get('/api/search', async (req, res) => {
         }
 
         // 좌표 변환
-        const enrichedItemsPromises = allItems.map(async (item) => {
-            let lat = null;
-            let lng = null;
+        const enrichedPromises = allItems.map(async (item) => {
+            let lat2 = null,
+                lng2 = null;
             const coords = await getGeocoding(item.roadAddress || item.address);
             if (coords) {
-                lat = coords.lat;
-                lng = coords.lng;
+                lat2 = coords.lat;
+                lng2 = coords.lng;
             } else if (item.mapx && item.mapy) {
-                lat = parseFloat(item.mapy) / 1e7;
-                lng = parseFloat(item.mapx) / 1e7;
+                lat2 = parseFloat(item.mapy) / 1e7;
+                lng2 = parseFloat(item.mapx) / 1e7;
             }
-            if (lat && lng) {
+            if (lat2 && lng2) {
                 return {
                     title: item.title,
                     address: item.roadAddress || item.address,
-                    lat: lat,
-                    lng: lng,
+                    lat: lat2,
+                    lng: lng2,
                     category: item.category,
                     link: item.link,
                 };
             }
             return null;
         });
-        const enrichedItems = (await Promise.all(enrichedItemsPromises)).filter((item) => item !== null);
+        let enrichedItems = (await Promise.all(enrichedPromises)).filter(Boolean);
 
-        // 5km 반경 필터링 (좌표가 모두 있을 때만)
-        let filteredByRadius = enrichedItems;
-        if (userLat !== null && userLng !== null) {
-            const getDistanceKm = (lat1, lng1, lat2, lng2) => {
-                const R = 6371;
-                const dLat = ((lat2 - lat1) * Math.PI) / 180;
-                const dLng = ((lng2 - lng1) * Math.PI) / 180;
-                const a =
-                    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                    Math.cos((lat1 * Math.PI) / 180) *
-                        Math.cos((lat2 * Math.PI) / 180) *
-                        Math.sin(dLng / 2) *
-                        Math.sin(dLng / 2);
-                return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            };
-            filteredByRadius = enrichedItems.filter((item) => {
-                if (item.lat && item.lng) {
-                    const dist = getDistanceKm(userLat, userLng, item.lat, item.lng);
-                    item.distanceKm = dist;
-                    return dist <= 5;
-                }
-                return false;
-            });
+        // bounds 필터링
+        if (hasBounds) {
+            enrichedItems = enrichedItems.filter(
+                (item) => item.lat >= bSwLat && item.lat <= bNeLat && item.lng >= bSwLng && item.lng <= bNeLng,
+            );
         }
 
-        // Supabase에서 사용자 등록 가게 추가 (enrichedItems에 push하지 않고 별도 배열에 저장)
-        let userStores = null;
-        let userStoreItems = [];
+        // Supabase 사용자 등록 가게도 추가 (bounds 내만)
         try {
             const { data, error } = await supabase.from('stores').select('*');
-            if (error) {
-                console.error('Supabase select error:', error);
-            } else if (data) {
-                userStores = data;
-                userStoreItems = data.map((store) => ({
-                    title: store.name,
-                    address: store.address,
-                    roadAddress: store.address,
-                    lat: store.lat,
-                    lng: store.lng,
-                    category: '사용자 등록',
-                    link: '',
-                }));
+            if (!error && data) {
+                data.forEach((store) => {
+                    if (hasBounds) {
+                        if (store.lat < bSwLat || store.lat > bNeLat || store.lng < bSwLng || store.lng > bNeLng)
+                            return;
+                    }
+                    if (!seenAddresses.has(store.address)) {
+                        seenAddresses.add(store.address);
+                        enrichedItems.push({
+                            title: store.name,
+                            address: store.address,
+                            lat: store.lat,
+                            lng: store.lng,
+                            category: '사용자 등록',
+                            link: '',
+                        });
+                    }
+                });
             }
         } catch (err) {
             console.error('Error fetching user stores:', err);
         }
 
-        // 네이버+사용자 등록 가게 모두 5km 반경 필터링
-        let allItemsForRadius = enrichedItems.concat(userStoreItems);
-        if (userLat !== null && userLng !== null) {
-            const getDistanceKm = (lat1, lng1, lat2, lng2) => {
+        // 중심 좌표 기준 거리 계산
+        if (centerLat !== null && centerLng !== null) {
+            enrichedItems.forEach((item) => {
                 const R = 6371;
-                const dLat = ((lat2 - lat1) * Math.PI) / 180;
-                const dLng = ((lng2 - lng1) * Math.PI) / 180;
+                const dLat = ((item.lat - centerLat) * Math.PI) / 180;
+                const dLng = ((item.lng - centerLng) * Math.PI) / 180;
                 const a =
-                    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                    Math.cos((lat1 * Math.PI) / 180) *
-                        Math.cos((lat2 * Math.PI) / 180) *
-                        Math.sin(dLng / 2) *
-                        Math.sin(dLng / 2);
-                return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            };
-            allItemsForRadius = allItemsForRadius.filter((item) => {
-                if (item.lat && item.lng) {
-                    const dist = getDistanceKm(userLat, userLng, item.lat, item.lng);
-                    item.distanceKm = dist;
-                    return dist <= 5;
-                }
-                return false;
+                    Math.sin(dLat / 2) ** 2 +
+                    Math.cos((centerLat * Math.PI) / 180) *
+                        Math.cos((item.lat * Math.PI) / 180) *
+                        Math.sin(dLng / 2) ** 2;
+                item.distanceKm = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
             });
+            enrichedItems.sort((a, b) => a.distanceKm - b.distanceKm);
         }
 
-        res.json({
-            items: allItemsForRadius,
-            _debug: {
-                naverItems: totalNaverItems,
-                filteredItems: allItems.length,
-                enrichedItems: enrichedItems.length,
-                filteredByRadius: allItemsForRadius.length,
-                supabaseUserStores: userStores ? userStores.length : null,
-            },
-        });
-        return; // 기존 res.json 및 이후 코드 실행 방지
+        res.json({ items: enrichedItems });
     } catch (error) {
+        console.error('Search error:', error.message);
         res.status(500).json({ error: error.message });
     }
 });
 
+// ============================================================
+// 좋아요 API: Supabase likes 테이블 기반
+// ============================================================
+app.get('/api/likes', async (req, res) => {
+    try {
+        const { data, error } = await supabase.from('likes').select('store_key, count');
+        if (error) throw error;
+        const likesMap = {};
+        (data || []).forEach((row) => {
+            likesMap[row.store_key] = row.count || 0;
+        });
+        res.json(likesMap);
+    } catch (e) {
+        // fallback: stores 테이블
+        try {
+            const { data } = await supabase.from('stores').select('id, likes');
+            const likesMap = {};
+            (data || []).forEach((s) => {
+                likesMap['store_' + s.id] = s.likes || 0;
+            });
+            res.json(likesMap);
+        } catch (_) {
+            res.json({});
+        }
+    }
+});
+
+app.post('/api/likes', async (req, res) => {
+    try {
+        const { storeKey } = req.body;
+        if (!storeKey) return res.status(400).json({ error: 'storeKey required' });
+
+        const { data: existing, error: fetchErr } = await supabase
+            .from('likes')
+            .select('*')
+            .eq('store_key', storeKey)
+            .maybeSingle();
+        if (fetchErr) throw fetchErr;
+
+        let newCount;
+        if (existing) {
+            newCount = (existing.count || 0) + 1;
+            await supabase.from('likes').update({ count: newCount }).eq('store_key', storeKey);
+        } else {
+            newCount = 1;
+            await supabase.from('likes').insert([{ store_key: storeKey, count: 1 }]);
+        }
+        res.json({ storeKey, count: newCount });
+    } catch (e) {
+        console.error('Like error:', e);
+        res.status(500).json({ error: 'Failed to update like' });
+    }
+});
+
+// ============================================================
+// Config
+// ============================================================
 app.get('/api/config', (req, res) => {
     res.json({ mapsClientId: process.env.NCP_CLIENT_ID });
 });
 
-app.get('/api/likes', (req, res) => {
-    res.json(getLikesData());
-});
-
-app.post('/api/likes', (req, res) => {
-    const { id } = req.body;
-    if (!id) return res.status(400).json({ error: 'ID required' });
-    const likes = getLikesData();
-    likes[id] = (likes[id] || 0) + 1;
-    saveLikesData(likes);
-    res.json({ id, count: likes[id] });
-});
-
-// Netlify Functions용 가게 등록 API
+// ============================================================
+// 가게 등록 API: 주소 기준 중복 방지
+// ============================================================
 app.post('/api/add-store', async (req, res) => {
-    const { name } = req.body;
-    if (!name) return res.status(400).json({ error: 'Store name is required' });
-
+    const { name, address, lat, lng } = req.body;
+    if (!name || !address || !lat || !lng) {
+        return res.status(400).json({ error: '가게 이름, 주소, 좌표가 필요합니다.' });
+    }
     try {
-        // Naver Search API로 가게 검색
-        const searchResponse = await axios.get('https://openapi.naver.com/v1/search/local.json', {
-            params: { query: `${name} 버터떡`, display: 5 },
+        const { data: exists } = await supabase.from('stores').select('id').eq('address', address);
+        if (exists && exists.length > 0) {
+            return res.status(409).json({ error: '이미 등록된 가게입니다.' });
+        }
+        const { data, error } = await supabase.from('stores').insert([{ name, address, lat, lng }]);
+        if (error) return res.status(500).json({ error: 'DB 저장 실패' });
+        res.json({ success: true, store: data ? data[0] : null });
+    } catch (error) {
+        console.error('Add store error:', error);
+        res.status(500).json({ error: '등록 실패' });
+    }
+});
+
+// ============================================================
+// 등록용 검색 API: 이미 등록된 가게 제외
+// ============================================================
+app.get('/api/search-for-register', async (req, res) => {
+    try {
+        const { query } = req.query;
+        if (!query) return res.status(400).json({ error: 'Query required' });
+
+        const response = await axios.get('https://openapi.naver.com/v1/search/local.json', {
+            params: { query, display: 20 },
             headers: {
                 'X-Naver-Client-Id': process.env.NAVER_CLIENT_ID,
                 'X-Naver-Client-Secret': process.env.NAVER_CLIENT_SECRET,
             },
         });
-
-        if (searchResponse.data.items && searchResponse.data.items.length > 0) {
-            const item = searchResponse.data.items[0];
-            const address = item.roadAddress || item.address;
-
-            // 좌표 변환
-            let coords = await getGeocoding(address);
-            if (!coords) {
-                if (item.mapy && item.mapx) {
-                    coords = {
-                        lat: parseFloat(item.mapy) / 1e7,
-                        lng: parseFloat(item.mapx) / 1e7,
-                    };
-                } else {
-                    coords = { lat: 37.5665, lng: 126.978 };
-                }
-            }
-
-            // 중복 체크: 주소+좌표로 stores 테이블에 이미 등록된 가게가 있는지 확인
-            const { data: existStores, error: existError } = await supabase
-                .from('stores')
-                .select('*')
-                .or(`address.eq.${address},and(lat.eq.${coords.lat},lng.eq.${coords.lng})`);
-
-            if (existError) {
-                return res.status(500).json({ error: 'DB 중복 체크 중 오류가 발생했습니다.' });
-            }
-            if (existStores && existStores.length > 0) {
-                return res.status(409).json({ error: '이미 등록된 가게입니다.' });
-            }
-
-            // Supabase에 저장
-            const { data, error } = await supabase
-                .from('stores')
-                .insert([{ name, address, lat: coords.lat, lng: coords.lng }]);
-
-            if (error) {
-                return res
-                    .status(500)
-                    .json({ error: 'DB 저장에 실패했습니다. 이미 등록된 가게이거나, 서버에 문제가 있습니다.' });
-            }
-
-            res.json({ success: true, store: data ? data[0] : null });
-        } else {
-            res.status(404).json({ error: '디저트 가게 중에 검색결과가 없습니다. 가게명을 정확히 입력해 주세요.' });
+        if (!response.data.items || response.data.items.length === 0) {
+            return res.json({ items: [] });
         }
+
+        // 이미 등록된 주소 목록
+        let registeredAddresses = new Set();
+        try {
+            const { data } = await supabase.from('stores').select('address');
+            if (data)
+                data.forEach((s) => {
+                    if (s.address) registeredAddresses.add(s.address);
+                });
+        } catch (_) {}
+
+        const resultPromises = response.data.items.map(async (item) => {
+            const addr = item.roadAddress || item.address;
+            if (registeredAddresses.has(addr)) return null;
+            let lat2 = null,
+                lng2 = null;
+            const coords = await getGeocoding(addr);
+            if (coords) {
+                lat2 = coords.lat;
+                lng2 = coords.lng;
+            } else if (item.mapx && item.mapy) {
+                lat2 = parseFloat(item.mapy) / 1e7;
+                lng2 = parseFloat(item.mapx) / 1e7;
+            }
+            if (lat2 && lng2) {
+                return {
+                    title: (item.title || '').replace(/<[^>]*>?/gm, ''),
+                    address: addr,
+                    lat: lat2,
+                    lng: lng2,
+                    category: item.category,
+                };
+            }
+            return null;
+        });
+        const items = (await Promise.all(resultPromises)).filter(Boolean);
+        res.json({ items });
     } catch (error) {
-        if (error.response && error.response.status === 401) {
-            return res.status(500).json({ error: '네이버 API 인증에 실패했습니다. 관리자에게 문의해 주세요.' });
-        }
-        res.status(500).json({ error: '알 수 없는 오류로 등록에 실패했습니다. 잠시 후 다시 시도해 주세요.' });
+        console.error('Search for register error:', error.message);
+        res.status(500).json({ error: error.message });
     }
 });
 
