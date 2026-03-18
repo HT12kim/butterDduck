@@ -29,7 +29,8 @@ body {
     font-family: 'Outfit', 'Noto Sans KR', sans-serif;
     background-color: var(--bg-color);
     color: var(--text-main);
-    height: 100vh;
+    padding-top: 8px;
+    height: calc(100vh - 8px);
     overflow: hidden;
 }
 
