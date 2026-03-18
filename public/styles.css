@@ -42,7 +42,7 @@ body {
 header {
     background: white;
     /* iOS notch 대응: safe-area-inset-top + 고정 여백으로 상단 카메라/센서 영역 확보 */
-    padding: calc(env(safe-area-inset-top, 0px) + 32px) 2rem 20px 2rem;
+    padding: calc(env(safe-area-inset-top, 0px) + 40px) 2rem 20px 2rem;
     z-index: 100;
     border-bottom: 2px solid var(--primary-soft);
 }
@@ -56,8 +56,10 @@ header {
     justify-content: space-between;
 }
 
-.logo-emoji {
-    font-size: 2rem;
+.logo-img {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
     filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.1));
 }
 
@@ -387,11 +389,12 @@ main {
     }
 
     header {
-        padding: calc(env(safe-area-inset-top, 0px) + 20px) 1rem 14px 1rem;
+        padding: calc(env(safe-area-inset-top, 0px) + 28px) 1rem 16px 1rem;
     }
 
-    .logo-emoji {
-        font-size: 1.5rem;
+    .logo-img {
+        width: 32px;
+        height: 32px;
     }
     .title-group h1 {
         font-size: 1rem;
