@@ -5,6 +5,9 @@ let currentLat = 37.5665;
 let currentLng = 126.978;
 let storeLikes = {};
 let isSearching = false;
+let lastResultCount = 0;
+let currentRegionName = '내 주변';
+let lastRegionLookupKey = '';
 
 // ============================================================
 // 모바일 UI 초기화
@@ -34,11 +37,25 @@ function setupMobileUI() {
         };
     }
 
+    const shareBtn = document.getElementById('kakao-share-btn');
+    if (shareBtn) {
+        shareBtn.onclick = async (e) => {
+            e.stopPropagation();
+            await shareKakao();
+        };
+    }
+
     const headerEl = document.querySelector('header');
     if (headerEl) {
         const recenter = (e) => {
             if (!map) return;
-            if (e && e.target && e.target.closest && e.target.closest('#add-store-btn')) return;
+            if (
+                e &&
+                e.target &&
+                e.target.closest &&
+                (e.target.closest('#add-store-btn') || e.target.closest('#kakao-share-btn'))
+            )
+                return;
             map.panTo(new kakao.maps.LatLng(currentLat, currentLng));
         };
         headerEl.addEventListener('click', recenter);
@@ -57,6 +74,7 @@ async function initApp() {
             alert('Kakao Maps JavaScript 키가 설정되지 않았습니다.');
             return;
         }
+        await loadKakaoLinkScript(config.kakaoJsKey);
         await loadKakaoMapsScript(config.kakaoJsKey);
 
         let isInitialized = false;
@@ -104,10 +122,57 @@ function loadKakaoMapsScript(appKey) {
             return;
         }
         const script = document.createElement('script');
-        script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${appKey}&autoload=false`;
+        script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${appKey}&autoload=false&libraries=services`;
         script.onload = resolve;
         script.onerror = reject;
         document.head.appendChild(script);
+    });
+}
+
+function loadKakaoLinkScript(appKey) {
+    return new Promise((resolve, reject) => {
+        if (window.Kakao && window.Kakao.init) {
+            try {
+                if (!window.Kakao.isInitialized()) window.Kakao.init(appKey);
+                resolve();
+            } catch (err) {
+                reject(err);
+            }
+            return;
+        }
+        const script = document.createElement('script');
+        script.src = 'https://developers.kakao.com/sdk/js/kakao.js';
+        script.onload = () => {
+            try {
+                if (window.Kakao && !window.Kakao.isInitialized()) {
+                    window.Kakao.init(appKey);
+                }
+                resolve();
+            } catch (err) {
+                reject(err);
+            }
+        };
+        script.onerror = reject;
+        document.head.appendChild(script);
+    });
+}
+
+async function updateRegionName(lat, lng) {
+    if (!window.kakao || !window.kakao.maps || !window.kakao.maps.services) return;
+    const key = `${lat.toFixed(4)},${lng.toFixed(4)}`;
+    if (lastRegionLookupKey === key) return;
+    lastRegionLookupKey = key;
+
+    const geocoder = new kakao.maps.services.Geocoder();
+    return new Promise((resolve) => {
+        geocoder.coord2RegionCode(lng, lat, (result, status) => {
+            if (status === kakao.maps.services.Status.OK && result && result.length) {
+                const target = result.find((r) => r.region_type === 'H' || r.region_type === 'B') || result[0];
+                const name = target.region_2depth_name || target.region_1depth_name || target.address_name;
+                if (name) currentRegionName = name;
+            }
+            resolve();
+        });
     });
 }
 
@@ -184,6 +249,8 @@ async function searchPlaces() {
             neLng: ne.getLng(),
         });
 
+        await updateRegionName(center.getLat(), center.getLng());
+
         const response = await fetch(`/api/search?${params}`);
         const data = await response.json();
 
@@ -218,6 +285,7 @@ function getDistanceKm(lat1, lng1, lat2, lng2) {
 function displayPlaces(items) {
     const listContainer = document.getElementById('places-list');
     const resultCount = document.getElementById('result-count');
+    lastResultCount = items.length;
     resultCount.textContent = items.length;
 
     if (items.length === 0) {
@@ -320,6 +388,53 @@ async function handleLike(storeKey, badgeEl, item) {
         localStorage.setItem('liked_stores', JSON.stringify(likedStores));
     } catch (e) {
         console.error('Like failed', e);
+    }
+}
+
+async function shareKakao() {
+    try {
+        if (!window.Kakao || !window.Kakao.isInitialized()) {
+            alert('카카오톡 공유 준비 중입니다. 잠시 후 다시 시도해주세요.');
+            return;
+        }
+
+        const center = map?.getCenter();
+        if (center) await updateRegionName(center.getLat(), center.getLng());
+
+        const region = currentRegionName || '내 주변';
+        const countText = lastResultCount > 0 ? `${lastResultCount}곳` : '여러 곳';
+        const title = `방금 [${region}] 근처 버터떡집 ${countText} 발견!`;
+        const description = '버터떡 맛집 지도에서 내 주변 버터떡집을 확인해보세요.';
+        const shareImageUrl = 'https://butterdduck.netlify.app/image.png';
+        const shareUrl = 'https://butterdduck.netlify.app';
+
+        window.Kakao.Link.sendDefault({
+            objectType: 'feed',
+            content: {
+                title,
+                description,
+                imageUrl: shareImageUrl,
+                link: {
+                    mobileWebUrl: shareUrl,
+                    webUrl: shareUrl,
+                },
+            },
+            social: {
+                likeCount: storeLikes ? Object.values(storeLikes).reduce((a, b) => a + (b || 0), 0) : 0,
+            },
+            buttons: [
+                {
+                    title: '지도에서 보기',
+                    link: {
+                        mobileWebUrl: shareUrl,
+                        webUrl: shareUrl,
+                    },
+                },
+            ],
+        });
+    } catch (err) {
+        console.error('Kakao share failed', err);
+        alert('카카오톡 공유에 실패했습니다.');
     }
 }
 

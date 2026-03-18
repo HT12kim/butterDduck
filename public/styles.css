@@ -57,6 +57,12 @@ header {
     justify-content: space-between;
 }
 
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
 .logo-img {
     width: 40px;
     height: 40px;
@@ -75,18 +81,28 @@ header {
     color: var(--text-muted);
 }
 
-#add-store-btn {
+.action-btn {
     background: var(--primary);
     color: black;
     border: none;
     padding: 0.5rem 1rem;
+    min-height: 42px;
     border-radius: 8px;
     font-weight: 600;
     cursor: pointer;
     transition: background 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
 }
 
-#add-store-btn:hover {
+.kakao-icon {
+    width: 26px;
+    height: 26px;
+    object-fit: contain;
+}
+
+.action-btn:hover {
     background: var(--primary-soft);
 }
 
@@ -396,6 +412,16 @@ main {
     .logo-img {
         width: 32px;
         height: 32px;
+    }
+
+    .header-actions {
+        gap: 0.35rem;
+    }
+
+    .action-btn {
+        padding: 0.45rem 0.85rem;
+        min-height: 40px;
+        font-size: 0.9rem;
     }
     .title-group h1 {
         font-size: 1rem;
