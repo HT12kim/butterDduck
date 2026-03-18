@@ -87,9 +87,6 @@ app.get('/api/search', async (req, res) => {
             .filter((r) => r.status === 'fulfilled')
             .flatMap((r) => r.value)
             .filter(Boolean);
-        if (documents.length === 0) {
-            return res.json({ items: [] });
-        }
 
         const seen = new Set();
         const seenAddresses = new Set();
