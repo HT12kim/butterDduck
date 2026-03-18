@@ -30,6 +30,17 @@ function setupMobileUI() {
     if (addStoreBtn) {
         addStoreBtn.onclick = () => showAddStoreModal();
     }
+
+    const headerEl = document.querySelector('header');
+    if (headerEl) {
+        const recenter = (e) => {
+            if (!map) return;
+            if (e && e.target && e.target.closest && e.target.closest('#add-store-btn')) return;
+            map.panTo(new kakao.maps.LatLng(currentLat, currentLng));
+        };
+        headerEl.addEventListener('pointerdown', recenter);
+        headerEl.addEventListener('click', recenter);
+    }
 }
 
 // ============================================================

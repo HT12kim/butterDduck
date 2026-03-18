@@ -41,8 +41,8 @@ body {
 
 header {
     background: white;
-    /* iOS notch 대응: safe-area-inset-top 사용, 기본값 20px */
-    padding: calc(env(safe-area-inset-top, 20px) + 0.5rem) 2rem 1rem 2rem;
+    /* iOS notch 대응: safe-area-inset-top + 고정 여백으로 상단 카메라/센서 영역 확보 */
+    padding: calc(env(safe-area-inset-top, 0px) + 24px) 2rem 16px 2rem;
     z-index: 100;
     border-bottom: 2px solid var(--primary-soft);
 }
@@ -387,7 +387,7 @@ main {
     }
 
     header {
-        padding: 0.75rem 1rem;
+        padding: calc(env(safe-area-inset-top, 0px) + 16px) 1rem 12px 1rem;
     }
 
     .logo-emoji {
