@@ -1,17 +1,24 @@
+require('dotenv').config();
 const express = require('express');
 const serverless = require('serverless-http');
 const axios = require('axios');
 
 const { createClient } = require('@supabase/supabase-js');
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
 
 const app = express();
 app.use(express.json());
 
-// Geocoding 헬퍼
+const DEFAULT_KEYWORD = '버터떡';
+const KAKAO_REST_KEY = process.env.KAKAO_REST_KEY;
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+const stripHtml = (text) => (text || '').replace(/<[^>]*>?/gm, '');
+
+// Naver geocode helper for address-to-coordinates lookup
 async function getGeocoding(address) {
+    if (!address) return null;
     try {
         const response = await axios.get('https://naveropenapi.apigw.ntruss.com/map-geocode/v2/geocode', {
             params: { query: address },
@@ -25,18 +32,35 @@ async function getGeocoding(address) {
             return { lat: parseFloat(addr.y), lng: parseFloat(addr.x) };
         }
     } catch (error) {
-        console.error(`Geocoding failed for: ${address}`, error.message);
+        console.error(`Geocoding failed for ${address}:`, error.message);
     }
     return null;
 }
 
+// Kakao Local API search helper
+async function kakaoKeywordSearch({ query, rect, x, y, page }) {
+    if (!KAKAO_REST_KEY) throw new Error('KAKAO_REST_KEY missing');
+    const params = { query, size: 15, page };
+    if (rect) params.rect = rect;
+    else if (x && y) {
+        params.x = x;
+        params.y = y;
+        params.radius = 20000;
+    }
+    const { data } = await axios.get('https://dapi.kakao.com/v2/local/search/keyword.json', {
+        params,
+        headers: { Authorization: `KakaoAK ${KAKAO_REST_KEY}` },
+    });
+    return data.documents || [];
+}
+
 // ============================================================
-// 검색 API: 지도 화면(bounds) 기반으로 "버터떡" 키워드 포함 가게 검색
+// 검색 API: 지도 화면(bounds) 기반
 // ============================================================
 app.get('/api/search', async (req, res) => {
     try {
         const { query, lat, lng, swLat, swLng, neLat, neLng } = req.query;
-        if (!query) return res.status(400).json({ error: 'Query required' });
+        const keyword = (query || DEFAULT_KEYWORD).trim() || DEFAULT_KEYWORD;
 
         const centerLat = lat ? parseFloat(lat) : null;
         const centerLng = lng ? parseFloat(lng) : null;
@@ -44,139 +68,61 @@ app.get('/api/search', async (req, res) => {
         const bSwLng = swLng ? parseFloat(swLng) : null;
         const bNeLat = neLat ? parseFloat(neLat) : null;
         const bNeLng = neLng ? parseFloat(neLng) : null;
-        const hasBounds = bSwLat !== null && bSwLng !== null && bNeLat !== null && bNeLng !== null;
+        const hasBounds = [bSwLat, bSwLng, bNeLat, bNeLng].every((v) => Number.isFinite(v));
+        const rect = hasBounds ? `${bSwLng},${bSwLat},${bNeLng},${bNeLat}` : null;
 
-        // 네이버 검색 쿼리 변형
-        const queries = [query, `${query} 카페`, `${query} 맛집`, `${query} 파는곳`];
-        const searchPromises = queries.map((q) =>
-            axios.get('https://openapi.naver.com/v1/search/local.json', {
-                params: { query: q, display: 20 },
-                headers: {
-                    'X-Naver-Client-Id': process.env.NAVER_CLIENT_ID,
-                    'X-Naver-Client-Secret': process.env.NAVER_CLIENT_SECRET,
-                },
-            }),
-        );
-        const searchResponses = await Promise.all(searchPromises);
+        const keywordPages = await Promise.allSettled([
+            kakaoKeywordSearch({ query: keyword, rect, x: centerLng, y: centerLat, page: 1 }),
+            kakaoKeywordSearch({ query: keyword, rect, x: centerLng, y: centerLat, page: 2 }),
+            kakaoKeywordSearch({ query: keyword, rect, x: centerLng, y: centerLat, page: 3 }),
+        ]);
 
-        // 카테고리 / 프랜차이즈 필터
-        const allowedCategories = [
-            '카페',
-            '디저트',
-            '빵집',
-            '후식',
-            '커피',
-            '까페',
-            '베이커리',
-            '제과점',
-            '브런치',
-            '케이크',
-            '샌드위치',
-            '파티쉐',
-            '디저트카페',
-            'dessert',
-            'cafe',
-            'bakery',
-            'patisserie',
-            'brunch',
-            'cake',
-            'sandwich',
-            '커피전문점',
-            '음료',
-            '음료점',
-            'tea',
-            'coffee',
-            '커피숍',
-        ];
-        const franchiseKeywords = [
-            '빽다방',
-            '스타벅스',
-            '이디야',
-            '투썸',
-            '메가커피',
-            '할리스',
-            '커피빈',
-            '파스쿠찌',
-            '컴포즈',
-            '더벤티',
-            '엔제리너스',
-            '폴바셋',
-            '탐앤탐스',
-        ];
-        const queryStr = (query || '').toLowerCase();
-        const isFranchise = franchiseKeywords.some((kw) => queryStr.includes(kw.toLowerCase()));
-
-        let allItems = [];
-        const seenAddresses = new Set();
-
-        searchResponses.forEach((response) => {
-            if (response.data.items) {
-                response.data.items.forEach((item) => {
-                    const cleanAddress = item.roadAddress || item.address;
-                    const categoryStr = (item.category || '').toLowerCase();
-                    const titleStr = (item.title || '').replace(/<[^>]*>?/gm, '').toLowerCase();
-                    const isAllowed = allowedCategories.some((cat) => categoryStr.includes(cat.toLowerCase()));
-                    const isNameMatch = titleStr.includes(queryStr) || categoryStr.includes(queryStr);
-                    if ((isFranchise || isAllowed || isNameMatch) && !seenAddresses.has(cleanAddress)) {
-                        seenAddresses.add(cleanAddress);
-                        allItems.push(item);
-                    }
-                });
-            }
-        });
-
-        if (allItems.length === 0) {
-            searchResponses.forEach((response) => {
-                if (response.data.items) {
-                    response.data.items.forEach((item) => {
-                        const cleanAddress = item.roadAddress || item.address;
-                        if (!seenAddresses.has(cleanAddress)) {
-                            seenAddresses.add(cleanAddress);
-                            allItems.push(item);
-                        }
-                    });
-                }
-            });
+        const documents = keywordPages
+            .filter((r) => r.status === 'fulfilled')
+            .flatMap((r) => r.value)
+            .filter(Boolean);
+        if (documents.length === 0) {
+            return res.json({ items: [] });
         }
 
-        // 좌표 변환
-        const enrichedPromises = allItems.map(async (item) => {
-            let lat2 = null,
-                lng2 = null;
-            const coords = await getGeocoding(item.roadAddress || item.address);
-            if (coords) {
-                lat2 = coords.lat;
-                lng2 = coords.lng;
-            } else if (item.mapx && item.mapy) {
-                lat2 = parseFloat(item.mapy) / 1e7;
-                lng2 = parseFloat(item.mapx) / 1e7;
-            }
-            if (lat2 && lng2) {
+        const seen = new Set();
+        const seenAddresses = new Set();
+        let enrichedItems = documents
+            .map((doc) => {
+                const lat = parseFloat(doc.y);
+                const lng = parseFloat(doc.x);
+                const address = doc.road_address_name || doc.address_name;
+                const key = `${doc.place_name}|${address}`;
+                if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+                if (seen.has(key)) return null;
+                seen.add(key);
                 return {
-                    title: item.title,
-                    address: item.roadAddress || item.address,
-                    lat: lat2,
-                    lng: lng2,
-                    category: item.category,
-                    link: item.link,
+                    title: doc.place_name,
+                    address,
+                    lat,
+                    lng,
+                    category: doc.category_name,
+                    link: doc.place_url,
+                    phone: doc.phone,
                 };
-            }
-            return null;
-        });
-        let enrichedItems = (await Promise.all(enrichedPromises)).filter(Boolean);
+            })
+            .filter(Boolean);
 
-        // bounds 필터링
         if (hasBounds) {
             enrichedItems = enrichedItems.filter(
                 (item) => item.lat >= bSwLat && item.lat <= bNeLat && item.lng >= bSwLng && item.lng <= bNeLng,
             );
         }
 
-        // Supabase 사용자 등록 가게도 추가 (bounds 내만)
         try {
             const { data, error } = await supabase.from('stores').select('*');
             if (!error && data) {
                 data.forEach((store) => {
+                    const nameLower = (store.name || '').toLowerCase();
+                    const addrLower = (store.address || '').toLowerCase();
+                    const matchesKeyword =
+                        nameLower.includes(keyword.toLowerCase()) || addrLower.includes(keyword.toLowerCase());
+
                     if (hasBounds) {
                         if (store.lat < bSwLat || store.lat > bNeLat || store.lng < bSwLng || store.lng > bNeLng)
                             return;
@@ -198,7 +144,6 @@ app.get('/api/search', async (req, res) => {
             console.error('Error fetching user stores:', err);
         }
 
-        // 중심 좌표 기준 거리 계산
         if (centerLat !== null && centerLng !== null) {
             enrichedItems.forEach((item) => {
                 const R = 6371;
@@ -222,7 +167,7 @@ app.get('/api/search', async (req, res) => {
 });
 
 // ============================================================
-// 좋아요 API: Supabase likes 테이블 기반
+// 좋아요 API
 // ============================================================
 app.get('/api/likes', async (req, res) => {
     try {
@@ -234,7 +179,6 @@ app.get('/api/likes', async (req, res) => {
         });
         res.json(likesMap);
     } catch (e) {
-        // fallback: stores 테이블
         try {
             const { data } = await supabase.from('stores').select('id, likes');
             const likesMap = {};
@@ -250,7 +194,7 @@ app.get('/api/likes', async (req, res) => {
 
 app.post('/api/likes', async (req, res) => {
     try {
-        const { storeKey } = req.body;
+        const { storeKey, title, address, lat, lng } = req.body;
         if (!storeKey) return res.status(400).json({ error: 'storeKey required' });
 
         const { data: existing, error: fetchErr } = await supabase
@@ -268,6 +212,34 @@ app.post('/api/likes', async (req, res) => {
             newCount = 1;
             await supabase.from('likes').insert([{ store_key: storeKey, count: 1 }]);
         }
+
+        const cleanTitle = stripHtml(title) || '버터떡 매장';
+        const numericLat = lat != null ? parseFloat(lat) : null;
+        const numericLng = lng != null ? parseFloat(lng) : null;
+        const hasCoords = Number.isFinite(numericLat) && Number.isFinite(numericLng);
+
+        if (address && hasCoords) {
+            try {
+                const { data: existingStore, error: storeFetchErr } = await supabase
+                    .from('stores')
+                    .select('id')
+                    .eq('address', address)
+                    .maybeSingle();
+
+                if (!storeFetchErr) {
+                    if (!existingStore) {
+                        await supabase
+                            .from('stores')
+                            .insert([{ name: cleanTitle, address, lat: numericLat, lng: numericLng, likes: newCount }]);
+                    } else {
+                        await supabase.from('stores').update({ likes: newCount }).eq('id', existingStore.id);
+                    }
+                }
+            } catch (storeErr) {
+                console.error('Failed to upsert store on like:', storeErr.message);
+            }
+        }
+
         res.json({ storeKey, count: newCount });
     } catch (e) {
         console.error('Like error:', e);
@@ -279,11 +251,12 @@ app.post('/api/likes', async (req, res) => {
 // Config
 // ============================================================
 app.get('/api/config', (req, res) => {
-    res.json({ mapsClientId: process.env.NCP_CLIENT_ID });
+    const kakaoJsKey = process.env.KAKAO_JS_KEY || process.env.KAKAO_JAVASCRIPT_KEY || '';
+    res.json({ kakaoJsKey });
 });
 
 // ============================================================
-// 가게 등록 API: 주소 기준 중복 방지
+// 가게 등록 API
 // ============================================================
 app.post('/api/add-store', async (req, res) => {
     const { name, address, lat, lng } = req.body;
@@ -312,56 +285,56 @@ app.get('/api/search-for-register', async (req, res) => {
         const { query } = req.query;
         if (!query) return res.status(400).json({ error: 'Query required' });
 
-        const response = await axios.get('https://openapi.naver.com/v1/search/local.json', {
-            params: { query, display: 20 },
-            headers: {
-                'X-Naver-Client-Id': process.env.NAVER_CLIENT_ID,
-                'X-Naver-Client-Secret': process.env.NAVER_CLIENT_SECRET,
-            },
-        });
-        if (!response.data.items || response.data.items.length === 0) {
+        const pages = await Promise.allSettled([
+            kakaoKeywordSearch({ query, page: 1 }),
+            kakaoKeywordSearch({ query, page: 2 }),
+        ]);
+
+        const documents = pages
+            .filter((r) => r.status === 'fulfilled')
+            .flatMap((r) => r.value)
+            .filter(Boolean);
+        if (documents.length === 0) {
             return res.json({ items: [] });
         }
 
-        // 이미 등록된 주소 목록
-        let registeredAddresses = new Set();
+        const registeredAddresses = new Set();
         try {
             const { data } = await supabase.from('stores').select('address');
-            if (data)
+            if (data) {
                 data.forEach((s) => {
                     if (s.address) registeredAddresses.add(s.address);
                 });
+            }
         } catch (_) {}
 
-        const resultPromises = response.data.items.map(async (item) => {
-            const addr = item.roadAddress || item.address;
-            if (registeredAddresses.has(addr)) return null;
-            let lat2 = null,
-                lng2 = null;
-            const coords = await getGeocoding(addr);
-            if (coords) {
-                lat2 = coords.lat;
-                lng2 = coords.lng;
-            } else if (item.mapx && item.mapy) {
-                lat2 = parseFloat(item.mapy) / 1e7;
-                lng2 = parseFloat(item.mapx) / 1e7;
-            }
-            if (lat2 && lng2) {
+        const seen = new Set();
+        const items = documents
+            .map((doc) => {
+                const address = doc.road_address_name || doc.address_name;
+                const lat = parseFloat(doc.y);
+                const lng = parseFloat(doc.x);
+                const key = `${doc.place_name}|${address}`;
+                if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+                if (!address || registeredAddresses.has(address)) return null;
+                if (seen.has(key)) return null;
+                seen.add(key);
                 return {
-                    title: (item.title || '').replace(/<[^>]*>?/gm, ''),
-                    address: addr,
-                    lat: lat2,
-                    lng: lng2,
-                    category: item.category,
+                    title: stripHtml(doc.place_name),
+                    address,
+                    lat,
+                    lng,
+                    category: doc.category_name,
+                    phone: doc.phone,
+                    link: doc.place_url,
                 };
-            }
-            return null;
-        });
-        const items = (await Promise.all(resultPromises)).filter(Boolean);
+            })
+            .filter(Boolean);
+
         res.json({ items });
     } catch (error) {
         console.error('Search for register error:', error.message);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'Failed to search places' });
     }
 });
 

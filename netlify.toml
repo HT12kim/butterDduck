@@ -3,7 +3,7 @@
   command = "npm install"
 
 [functions]
-  directory = "netlify/functions"
+  directory = "."
 
 [[redirects]]
   from = "/api/*"

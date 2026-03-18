@@ -11,7 +11,8 @@ const DEFAULT_KEYWORD = '버터떡';
 const KAKAO_REST_KEY = process.env.KAKAO_REST_KEY;
 
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_ANON_KEY;
+// 서버에서 쓰는 키는 서비스 키 우선 사용(필요 시 RLS bypass)
+const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 app.use(cors());
@@ -19,6 +20,27 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
 const stripHtml = (text) => (text || '').replace(/<[^>]*>?/gm, '');
+
+// Naver geocode helper for address-to-coordinates lookup
+async function getGeocoding(address) {
+    if (!address) return null;
+    try {
+        const response = await axios.get('https://naveropenapi.apigw.ntruss.com/map-geocode/v2/geocode', {
+            params: { query: address },
+            headers: {
+                'X-NCP-APIGW-API-KEY-ID': process.env.NCP_CLIENT_ID,
+                'X-NCP-APIGW-API-KEY': process.env.NCP_CLIENT_SECRET,
+            },
+        });
+        if (response.data.addresses && response.data.addresses.length > 0) {
+            const addr = response.data.addresses[0];
+            return { lat: parseFloat(addr.y), lng: parseFloat(addr.x) };
+        }
+    } catch (error) {
+        console.error(`Geocoding failed for ${address}:`, error.message);
+    }
+    return null;
+}
 
 // Kakao Local API 검색 공통 호출
 async function kakaoKeywordSearch({ query, rect, x, y, page }) {
@@ -70,6 +92,7 @@ app.get('/api/search', async (req, res) => {
         }
 
         const seen = new Set();
+        const seenAddresses = new Set();
         let enrichedItems = documents
             .map((doc) => {
                 const lat = parseFloat(doc.y);
@@ -234,7 +257,9 @@ app.post('/api/likes', async (req, res) => {
 // Config
 // ============================================================
 app.get('/api/config', (req, res) => {
-    res.json({ kakaoJsKey: process.env.KAKAO_JS_KEY || '' });
+    const kakaoJsKey = process.env.KAKAO_JS_KEY || process.env.KAKAO_JAVASCRIPT_KEY || '';
+    console.log('Current Key Check:', kakaoJsKey || 'Key is Missing!');
+    res.json({ kakaoJsKey });
 });
 
 // ============================================================
@@ -267,56 +292,60 @@ app.get('/api/search-for-register', async (req, res) => {
         const { query } = req.query;
         if (!query) return res.status(400).json({ error: 'Query required' });
 
-        const response = await axios.get('https://openapi.naver.com/v1/search/local.json', {
-            params: { query, display: 20 },
-            headers: {
-                'X-Naver-Client-Id': process.env.NAVER_CLIENT_ID,
-                'X-Naver-Client-Secret': process.env.NAVER_CLIENT_SECRET,
-            },
-        });
-        if (!response.data.items || response.data.items.length === 0) {
+        const pages = await Promise.allSettled([
+            kakaoKeywordSearch({ query, page: 1 }),
+            kakaoKeywordSearch({ query, page: 2 }),
+        ]);
+
+        const documents = pages
+            .filter((r) => r.status === 'fulfilled')
+            .flatMap((r) => r.value)
+            .filter(Boolean);
+        if (documents.length === 0) {
             return res.json({ items: [] });
         }
 
-        let registeredAddresses = new Set();
+        const registeredAddresses = new Set();
         try {
             const { data } = await supabase.from('stores').select('address');
-            if (data)
+            if (data) {
                 data.forEach((s) => {
                     if (s.address) registeredAddresses.add(s.address);
                 });
+            }
         } catch (_) {}
 
-        const resultPromises = response.data.items.map(async (item) => {
-            const addr = item.roadAddress || item.address;
-            if (registeredAddresses.has(addr)) return null;
-            let lat2 = null,
-                lng2 = null;
-            const coords = await getGeocoding(addr);
-            if (coords) {
-                lat2 = coords.lat;
-                lng2 = coords.lng;
-            } else if (item.mapx && item.mapy) {
-                lat2 = parseFloat(item.mapy) / 1e7;
-                lng2 = parseFloat(item.mapx) / 1e7;
-            }
-            if (lat2 && lng2) {
+        const seen = new Set();
+        const items = documents
+            .map((doc) => {
+                const address = doc.road_address_name || doc.address_name;
+                const lat = parseFloat(doc.y);
+                const lng = parseFloat(doc.x);
+                const key = `${doc.place_name}|${address}`;
+                if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+                if (!address || registeredAddresses.has(address)) return null;
+                if (seen.has(key)) return null;
+                seen.add(key);
                 return {
-                    title: (item.title || '').replace(/<[^>]*>?/gm, ''),
-                    address: addr,
-                    lat: lat2,
-                    lng: lng2,
-                    category: item.category,
+                    title: stripHtml(doc.place_name),
+                    address,
+                    lat,
+                    lng,
+                    category: doc.category_name,
+                    phone: doc.phone,
+                    link: doc.place_url,
                 };
-            }
-            return null;
-        });
-        const items = (await Promise.all(resultPromises)).filter(Boolean);
+            })
+            .filter(Boolean);
+
         res.json({ items });
     } catch (error) {
         console.error('Search for register error:', error.message);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'Failed to search places' });
     }
 });
 
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+
+const serverless = require('serverless-http');
+module.exports.handler = serverless(app); // app은 express() 객체 이름
