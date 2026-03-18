@@ -28,7 +28,10 @@ function setupMobileUI() {
     }
     const addStoreBtn = document.getElementById('add-store-btn');
     if (addStoreBtn) {
-        addStoreBtn.onclick = () => showAddStoreModal();
+        addStoreBtn.onclick = (e) => {
+            e.stopPropagation();
+            showAddStoreModal();
+        };
     }
 
     const headerEl = document.querySelector('header');
@@ -38,7 +41,6 @@ function setupMobileUI() {
             if (e && e.target && e.target.closest && e.target.closest('#add-store-btn')) return;
             map.panTo(new kakao.maps.LatLng(currentLat, currentLng));
         };
-        headerEl.addEventListener('pointerdown', recenter);
         headerEl.addEventListener('click', recenter);
     }
 }
