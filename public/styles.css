@@ -352,9 +352,9 @@ main {
     position: absolute;
     left: 44px;
     top: 8px;
-    background: #e53935;
-    color: white;
-    border: none;
+    background: #ffffff;
+    color: #e53935;
+    border: 2px solid #e53935;
     border-radius: 999px;
     padding: 6px 10px;
     display: inline-flex;
@@ -362,7 +362,7 @@ main {
     gap: 6px;
     font-size: 12px;
     font-weight: 800;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.18);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
     cursor: pointer;
     transition: transform 0.15s ease;
     z-index: 20;
