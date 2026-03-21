@@ -312,14 +312,33 @@ async function searchPlaces() {
         });
 
         await updateRegionName(center.getLat(), center.getLng());
+        const [searchRes, storesRes] = await Promise.all([
+            fetch(`/api/search?${params}`),
+            fetch(`/api/stores-in-bounds?${params}`),
+        ]);
 
-        const response = await fetch(`/api/search?${params}`);
-        const data = await response.json();
+        const data = await searchRes.json();
+        const storeData = await storesRes.json();
 
-        if (data.items) {
-            await fetchLikes(); // 좋아요 캐시를 먼저 가져온다.
-            displayPlaces(data.items);
-            await updateMarkers(data.items);
+        const kakaoItems = Array.isArray(data.items) ? data.items : [];
+        const supaItems = Array.isArray(storeData.items) ? storeData.items : [];
+
+        const deduped = [];
+        const seenKeys = new Set();
+        [...kakaoItems, ...supaItems].forEach((item) => {
+            const key = getStoreKey(item);
+            if (seenKeys.has(key)) return;
+            seenKeys.add(key);
+            deduped.push(item);
+        });
+
+        if (deduped.length) {
+            await fetchLikes();
+            displayPlaces(deduped);
+            await updateMarkers(deduped);
+        } else {
+            displayPlaces([]);
+            await updateMarkers([]);
         }
     } catch (error) {
         console.error('Search error:', error);
@@ -575,17 +594,18 @@ function showInfoWindow(marker, item) {
     const phone = item.phone || '연락처 정보 없음';
     const kakaoLink = item.link || `https://map.kakao.com/link/search/${encodeURIComponent(cleanTitle)}`;
     const wrapper = document.createElement('div');
-    wrapper.style.padding = '14px';
-    wrapper.style.minWidth = '220px';
-    wrapper.style.maxWidth = '320px';
-    wrapper.style.fontFamily = "'Noto Sans KR', sans-serif";
-
+    wrapper.className = 'info-card';
     wrapper.innerHTML = `
-        <div style="display:flex; flex-direction:column; gap:4px;">
-            <div style="margin:0; color:#2b2b2b; font-size:15px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${cleanTitle}</div>
-            <div style="margin:0; font-size:12px; color:#555; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${address}</div>
-            <div style="margin:0; font-size:12px; color:#777; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${phone}</div>
-            <a href="${kakaoLink}" target="_blank" style="display:inline-block; margin-top:2px; font-size:12px; color:#ccac00; font-weight:700; text-decoration:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">카카오 상세보기 →</a>
+        <div class="info-card-header">
+            <span class="info-badge">🧈 버터 스팟</span>
+            <span class="info-status">지금 떠나볼까요?</span>
+        </div>
+        <div class="info-card-title" title="${cleanTitle}">${cleanTitle}</div>
+        <div class="info-card-line" title="${address}">📍 ${address}</div>
+        <div class="info-card-line" title="${phone}">📞 ${phone}</div>
+        <div class="info-card-actions">
+            <a class="info-link" href="${kakaoLink}" target="_blank" rel="noopener">카카오 상세보기</a>
+            <button class="info-cta" type="button" onclick="window.open('${kakaoLink}','_blank')">길찾기</button>
         </div>
     `;
 

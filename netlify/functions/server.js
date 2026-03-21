@@ -69,7 +69,10 @@ app.get('/api/search', async (req, res) => {
         const bNeLat = neLat ? parseFloat(neLat) : null;
         const bNeLng = neLng ? parseFloat(neLng) : null;
         const hasBounds = [bSwLat, bSwLng, bNeLat, bNeLng].every((v) => Number.isFinite(v));
-        const rect = hasBounds ? `${bSwLng},${bSwLat},${bNeLng},${bNeLat}` : null;
+        const deltaLat = hasBounds ? Math.abs(bNeLat - bSwLat) : 0;
+        const deltaLng = hasBounds ? Math.abs(bNeLng - bSwLng) : 0;
+        const useRect = hasBounds && deltaLat <= 0.5 && deltaLng <= 0.5;
+        const rect = useRect ? `${bSwLng},${bSwLat},${bNeLng},${bNeLat}` : null;
 
         const keywordPages = await Promise.allSettled([
             kakaoKeywordSearch({ query: keyword, rect, x: centerLng, y: centerLat, page: 1 }),
@@ -310,6 +313,60 @@ app.get('/api/static-thumb', async (req, res) => {
 app.get('/api/config', (req, res) => {
     const kakaoJsKey = process.env.KAKAO_JS_KEY || process.env.KAKAO_JAVASCRIPT_KEY || '';
     res.json({ kakaoJsKey });
+});
+
+// ============================================================
+// Supabase stores within current bounds
+// ============================================================
+app.get('/api/stores-in-bounds', async (req, res) => {
+    try {
+        const { lat, lng, swLat, swLng, neLat, neLng } = req.query;
+        const bSwLat = swLat ? parseFloat(swLat) : null;
+        const bSwLng = swLng ? parseFloat(swLng) : null;
+        const bNeLat = neLat ? parseFloat(neLat) : null;
+        const bNeLng = neLng ? parseFloat(neLng) : null;
+
+        const hasBounds = [bSwLat, bSwLng, bNeLat, bNeLng].every((v) => Number.isFinite(v));
+        if (!hasBounds) return res.status(400).json({ error: 'bounds required' });
+
+        const centerLat = lat ? parseFloat(lat) : null;
+        const centerLng = lng ? parseFloat(lng) : null;
+
+        const { data, error } = await supabase.from('stores').select('*');
+        if (error) throw error;
+
+        const items = (data || [])
+            .filter((store) => store.lat >= bSwLat && store.lat <= bNeLat && store.lng >= bSwLng && store.lng <= bNeLng)
+            .map((store) => ({
+                title: store.name,
+                address: store.address,
+                lat: store.lat,
+                lng: store.lng,
+                category: '사용자 등록',
+                link: '',
+                phone: store.phone || '',
+            }));
+
+        if (centerLat !== null && centerLng !== null) {
+            items.forEach((item) => {
+                const R = 6371;
+                const dLat = ((item.lat - centerLat) * Math.PI) / 180;
+                const dLng = ((item.lng - centerLng) * Math.PI) / 180;
+                const a =
+                    Math.sin(dLat / 2) ** 2 +
+                    Math.cos((centerLat * Math.PI) / 180) *
+                        Math.cos((item.lat * Math.PI) / 180) *
+                        Math.sin(dLng / 2) ** 2;
+                item.distanceKm = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            });
+            items.sort((a, b) => a.distanceKm - b.distanceKm);
+        }
+
+        res.json({ items });
+    } catch (err) {
+        console.error('stores-in-bounds error:', err.message);
+        res.status(500).json({ error: 'failed to load stores' });
+    }
 });
 
 // ============================================================
