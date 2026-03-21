@@ -244,7 +244,7 @@ app.post('/api/likes', async (req, res) => {
     }
 });
 
-// 카카오 place_url 페이지에서 대표 이미지(frame_g) 추출 프록시
+// 카카오 place_url 페이지에서 대표 이미지(placeimg) 추출 프록시
 app.get('/api/place-image', async (req, res) => {
     try {
         const { url } = req.query;
@@ -257,7 +257,7 @@ app.get('/api/place-image', async (req, res) => {
                     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36',
             },
         });
-        const match = data.match(/<img[^>]*class="[^"]*frame_g[^"]*"[^>]*src="([^"]+)"/i);
+        const match = data.match(/<img[^>]*class="[^"]*placeimg[^"]*"[^>]*src="([^"]+)"/i);
         if (!match || !match[1]) return res.json({ imageUrl: null });
         res.json({ imageUrl: match[1] });
     } catch (e) {
