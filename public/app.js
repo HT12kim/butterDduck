@@ -582,10 +582,12 @@ function showInfoWindow(marker, item) {
     wrapper.style.maxWidth = '320px';
     wrapper.style.fontFamily = "'Noto Sans KR', sans-serif";
 
+    const staticImg = item.lat && item.lng ? `/api/static-thumb?lat=${item.lat}&lng=${item.lng}` : fallbackImg;
+
     wrapper.innerHTML = `
         <div style="display:flex; gap:10px; align-items:flex-start;">
             <div style="width:72px; height:72px; border-radius:12px; overflow:hidden; background:#f6f6f6; flex-shrink:0;">
-                <img id="info-img" src="${fallbackImg}" alt="${cleanTitle}" style="width:100%; height:100%; object-fit:cover; display:block;">
+                <img id="info-img" src="${staticImg}" alt="${cleanTitle}" style="width:100%; height:100%; object-fit:cover; display:block;">
             </div>
             <div style="flex:1; min-width:0;">
                 <h4 style="margin:0 0 6px 0; color:#2b2b2b; font-size:15px;">${cleanTitle}</h4>
@@ -595,19 +597,6 @@ function showInfoWindow(marker, item) {
             </div>
         </div>
     `;
-
-    const imgEl = wrapper.querySelector('#info-img');
-    if (item.link) {
-        fetch(`/api/place-image?url=${encodeURIComponent(item.link)}`)
-            .then((res) => res.json())
-            .then((data) => {
-                if (!data || !data.imageUrl) return;
-                let src = data.imageUrl;
-                if (src.startsWith('//')) src = 'https:' + src;
-                imgEl.src = src;
-            })
-            .catch(() => {});
-    }
 
     infoWindow.setContent(wrapper);
     infoWindow.setPosition(marker.getPosition());

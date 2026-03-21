@@ -276,6 +276,37 @@ app.get('/api/place-image', async (req, res) => {
     }
 });
 
+// 카카오 Static Map 썸네일 프록시 (REST 키 보호)
+app.get('/api/static-thumb', async (req, res) => {
+    try {
+        const { lat, lng } = req.query;
+        if (!lat || !lng) return res.status(400).json({ error: 'lat/lng required' });
+        if (!KAKAO_REST_KEY) return res.status(500).json({ error: 'KAKAO_REST_KEY missing' });
+
+        const url = 'https://dapi.kakao.com/v2/maps/staticmap';
+        const params = {
+            center: `${lng},${lat}`,
+            level: 5,
+            w: 320,
+            h: 200,
+            markers: `${lng},${lat}`,
+        };
+
+        const mapRes = await axios.get(url, {
+            params,
+            responseType: 'arraybuffer',
+            headers: { Authorization: `KakaoAK ${KAKAO_REST_KEY}` },
+        });
+
+        res.set('Content-Type', 'image/png');
+        res.set('Cache-Control', 'public, max-age=3600');
+        res.send(mapRes.data);
+    } catch (e) {
+        console.error('static-thumb error', e.message);
+        res.status(500).json({ error: 'failed to load static map' });
+    }
+});
+
 // ============================================================
 // Config
 // ============================================================
