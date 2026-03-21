@@ -63,10 +63,72 @@ function setupMobileUI() {
 }
 
 // ============================================================
+// 첫 방문 온보딩 모달
+// ============================================================
+function showOnboardingModal() {
+    const SEEN_KEY = 'butter_onboarding_seen';
+    if (localStorage.getItem(SEEN_KEY) === 'true') return;
+
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+        display: flex; align-items: center; justify-content: center;
+        z-index: 3000; padding: 16px;
+    `;
+
+    modal.innerHTML = `
+        <div style="background:#fff8e6; border:1px solid #ffe08a; border-radius:16px; max-width:440px; width:100%; box-shadow:0 10px 30px rgba(0,0,0,0.12); font-family:'Noto Sans KR', sans-serif;">
+            <div style="padding:18px 20px 12px 20px; display:flex; align-items:center; gap:10px;">
+                <div style="font-size:24px;">🧭</div>
+                <div>
+                    <div style="font-weight:700; color:#2b2b2b; font-size:18px;">버터떡 지도 시작 가이드</div>
+                    <div style="color:#555; font-size:13px; margin-top:2px;">내 주변 버터떡집을 10초 안에 찾는 법</div>
+                </div>
+            </div>
+            <div style="padding:0 20px 8px 20px;">
+                <ul style="margin:0; padding:0 0 4px 0; list-style:none; display:flex; flex-direction:column; gap:10px;">
+                    <li style="display:flex; gap:10px; align-items:flex-start;">
+                        <span style="font-size:18px;">🗺️</span>
+                        <div style="font-size:14px; color:#333; line-height:1.4;">지도를 움직이면 해당 영역의 버터떡집이 자동으로 갱신됩니다.</div>
+                    </li>
+                    <li style="display:flex; gap:10px; align-items:flex-start;">
+                        <span style="font-size:18px;">👍</span>
+                        <div style="font-size:14px; color:#333; line-height:1.4;">마커를 눌러 좋아요를 남기고, 인기 순으로 정렬된 스팟을 확인해 보세요.</div>
+                    </li>
+                    <li style="display:flex; gap:10px; align-items:flex-start;">
+                        <span style="font-size:18px;">📤</span>
+                        <div style="font-size:14px; color:#333; line-height:1.4;">상단 공유 버튼으로 친구에게 카톡 공유해 함께 맛집을 찾아보세요.</div>
+                    </li>
+                </ul>
+            </div>
+            <div style="padding:12px 20px 18px 20px; display:flex; gap:10px;">
+                <button id="onboarding-close" style="flex:1; background:#ffd93d; color:#1f1a00; border:none; border-radius:10px; padding:12px 0; font-weight:700; cursor:pointer; box-shadow:0 4px 10px rgba(0,0,0,0.08);">시작하기</button>
+                <button id="onboarding-hide" style="flex:1; background:#f1f3f5; color:#2b2b2b; border:1px solid #e0e0e0; border-radius:10px; padding:12px 0; font-weight:700; cursor:pointer;">다시 보지 않기</button>
+            </div>
+        </div>
+    `;
+
+    const closeModal = (persist) => {
+        if (persist) localStorage.setItem(SEEN_KEY, 'true');
+        if (document.body.contains(modal)) document.body.removeChild(modal);
+    };
+
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal(false);
+    });
+
+    modal.querySelector('#onboarding-close').onclick = () => closeModal(true);
+    modal.querySelector('#onboarding-hide').onclick = () => closeModal(true);
+
+    document.body.appendChild(modal);
+}
+
+// ============================================================
 // 앱 초기화
 // ============================================================
 async function initApp() {
     setupMobileUI();
+    showOnboardingModal();
     try {
         const configResponse = await fetch('/api/config');
         const config = await configResponse.json();
