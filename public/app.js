@@ -574,16 +574,39 @@ function showInfoWindow(marker, item) {
     const address = item.roadAddress || item.address || '주소 정보 없음';
     const phone = item.phone || '연락처 정보 없음';
     const kakaoLink = item.link || `https://map.kakao.com/link/search/${encodeURIComponent(cleanTitle)}`;
+    const fallbackImg = 'https://butterdduck.netlify.app/image.png';
 
-    const content = `
-        <div style="padding:14px; min-width:220px; max-width:320px; font-family: 'Noto Sans KR', sans-serif;">
-            <h4 style="margin:0 0 6px 0; color:#2b2b2b; font-size:15px;">${cleanTitle}</h4>
-            <p style="margin:0 0 4px 0; font-size:12px; color:#555; line-height:1.4;">${address}</p>
-            <p style="margin:0 0 8px 0; font-size:12px; color:#777;">${phone}</p>
-            <a href="${kakaoLink}" target="_blank" style="display:inline-block; margin-top:6px; font-size:12px; color:#ccac00; font-weight:700; text-decoration:none;">카카오 상세보기 →</a>
+    const wrapper = document.createElement('div');
+    wrapper.style.padding = '14px';
+    wrapper.style.minWidth = '220px';
+    wrapper.style.maxWidth = '320px';
+    wrapper.style.fontFamily = "'Noto Sans KR', sans-serif";
+
+    wrapper.innerHTML = `
+        <div style="display:flex; gap:10px; align-items:flex-start;">
+            <div style="width:72px; height:72px; border-radius:12px; overflow:hidden; background:#f6f6f6; flex-shrink:0;">
+                <img id="info-img" src="${fallbackImg}" alt="${cleanTitle}" style="width:100%; height:100%; object-fit:cover; display:block;">
+            </div>
+            <div style="flex:1; min-width:0;">
+                <h4 style="margin:0 0 6px 0; color:#2b2b2b; font-size:15px;">${cleanTitle}</h4>
+                <p style="margin:0 0 4px 0; font-size:12px; color:#555; line-height:1.4;">${address}</p>
+                <p style="margin:0 0 8px 0; font-size:12px; color:#777;">${phone}</p>
+                <a href="${kakaoLink}" target="_blank" style="display:inline-block; margin-top:6px; font-size:12px; color:#ccac00; font-weight:700; text-decoration:none;">카카오 상세보기 →</a>
+            </div>
         </div>
     `;
-    infoWindow.setContent(content);
+
+    const imgEl = wrapper.querySelector('#info-img');
+    if (item.link) {
+        fetch(`/api/place-image?url=${encodeURIComponent(item.link)}`)
+            .then((res) => res.json())
+            .then((data) => {
+                if (data.imageUrl) imgEl.src = data.imageUrl;
+            })
+            .catch(() => {});
+    }
+
+    infoWindow.setContent(wrapper);
     infoWindow.setPosition(marker.getPosition());
     infoWindow.open(map);
 }
