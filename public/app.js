@@ -598,6 +598,31 @@ function showInfoWindow(marker, item) {
         </div>
     `;
 
+    // 이미지 로드 실패 시 카카오 place 이미지 → 기본 이미지 순으로 대체
+    const imgEl = wrapper.querySelector('#info-img');
+    let triedPlaceImg = false;
+    imgEl.onerror = () => {
+        if (!triedPlaceImg && item.link) {
+            triedPlaceImg = true;
+            fetch(`/api/place-image?url=${encodeURIComponent(item.link)}`)
+                .then((res) => res.json())
+                .then((data) => {
+                    if (data && data.imageUrl) {
+                        let src = data.imageUrl;
+                        if (src.startsWith('//')) src = 'https:' + src;
+                        imgEl.src = src;
+                        return;
+                    }
+                    imgEl.src = fallbackImg;
+                })
+                .catch(() => {
+                    imgEl.src = fallbackImg;
+                });
+        } else {
+            imgEl.src = fallbackImg;
+        }
+    };
+
     infoWindow.setContent(wrapper);
     infoWindow.setPosition(marker.getPosition());
     infoWindow.open(map);
