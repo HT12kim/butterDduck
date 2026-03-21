@@ -403,8 +403,10 @@ async function shareKakao() {
 
         const region = currentRegionName || '내 주변';
         const countText = lastResultCount > 0 ? `${lastResultCount}곳` : '여러 곳';
-        const title = `방금 [${region}] 근처 버터떡집 ${countText} 발견!`;
-        const description = '버터떡 맛집 지도에서 내 주변 버터떡집을 확인해보세요.';
+        const likeTotal = storeLikes ? Object.values(storeLikes).reduce((a, b) => a + (b || 0), 0) : 0;
+
+        const title = `🧈 ${region} 버터떡 스팟 ${countText}`;
+        const description = `겉바속촉 버터떡 지도에서 인기 스팟을 확인하세요! (좋아요 ${likeTotal}개)`;
         const shareImageUrl = 'https://butterdduck.netlify.app/image.png';
         const shareUrl = 'https://butterdduck.netlify.app';
 
@@ -420,11 +422,18 @@ async function shareKakao() {
                 },
             },
             social: {
-                likeCount: storeLikes ? Object.values(storeLikes).reduce((a, b) => a + (b || 0), 0) : 0,
+                likeCount: likeTotal,
             },
             buttons: [
                 {
-                    title: '지도에서 보기',
+                    title: '지도로 보기',
+                    link: {
+                        mobileWebUrl: shareUrl,
+                        webUrl: shareUrl,
+                    },
+                },
+                {
+                    title: '버터떡 둘러보기',
                     link: {
                         mobileWebUrl: shareUrl,
                         webUrl: shareUrl,
