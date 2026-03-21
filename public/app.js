@@ -581,11 +581,11 @@ function showInfoWindow(marker, item) {
     wrapper.style.fontFamily = "'Noto Sans KR', sans-serif";
 
     wrapper.innerHTML = `
-        <div style="display:flex; flex-direction:column; gap:6px;">
-            <h4 style="margin:0; color:#2b2b2b; font-size:15px;">${cleanTitle}</h4>
-            <p style="margin:0; font-size:12px; color:#555; line-height:1.4;">${address}</p>
-            <p style="margin:0; font-size:12px; color:#777;">${phone}</p>
-            <a href="${kakaoLink}" target="_blank" style="display:inline-block; margin-top:4px; font-size:12px; color:#ccac00; font-weight:700; text-decoration:none;">카카오 상세보기 →</a>
+        <div style="display:flex; flex-direction:column; gap:4px;">
+            <div style="margin:0; color:#2b2b2b; font-size:15px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${cleanTitle}</div>
+            <div style="margin:0; font-size:12px; color:#555; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${address}</div>
+            <div style="margin:0; font-size:12px; color:#777; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${phone}</div>
+            <a href="${kakaoLink}" target="_blank" style="display:inline-block; margin-top:2px; font-size:12px; color:#ccac00; font-weight:700; text-decoration:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">카카오 상세보기 →</a>
         </div>
     `;
 
