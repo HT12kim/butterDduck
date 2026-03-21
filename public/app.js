@@ -575,6 +575,7 @@ function showInfoWindow(marker, item) {
     const phone = item.phone || '연락처 정보 없음';
     const kakaoLink = item.link || `https://map.kakao.com/link/search/${encodeURIComponent(cleanTitle)}`;
     const fallbackImg = 'https://butterdduck.netlify.app/image.png';
+    const hasCoords = Number.isFinite(parseFloat(item.lat)) && Number.isFinite(parseFloat(item.lng));
 
     const wrapper = document.createElement('div');
     wrapper.style.padding = '14px';
@@ -582,7 +583,7 @@ function showInfoWindow(marker, item) {
     wrapper.style.maxWidth = '320px';
     wrapper.style.fontFamily = "'Noto Sans KR', sans-serif";
 
-    const staticImg = item.lat && item.lng ? `/api/static-thumb?lat=${item.lat}&lng=${item.lng}` : fallbackImg;
+    const staticImg = hasCoords ? `/api/static-thumb?lat=${item.lat}&lng=${item.lng}` : fallbackImg;
 
     wrapper.innerHTML = `
         <div style="display:flex; gap:10px; align-items:flex-start;">
@@ -602,7 +603,8 @@ function showInfoWindow(marker, item) {
     const imgEl = wrapper.querySelector('#info-img');
     let triedPlaceImg = false;
     imgEl.onerror = () => {
-        if (!triedPlaceImg && item.link) {
+        const isValidLink = typeof item.link === 'string' && /^https?:\/\//.test(item.link);
+        if (!triedPlaceImg && isValidLink) {
             triedPlaceImg = true;
             fetch(`/api/place-image?url=${encodeURIComponent(item.link)}`)
                 .then((res) => res.json())

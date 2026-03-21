@@ -273,16 +273,20 @@ app.get('/api/place-image', async (req, res) => {
 app.get('/api/static-thumb', async (req, res) => {
     try {
         const { lat, lng } = req.query;
-        if (!lat || !lng) return res.status(400).json({ error: 'lat/lng required' });
+        const nLat = parseFloat(lat);
+        const nLng = parseFloat(lng);
+        if (!Number.isFinite(nLat) || !Number.isFinite(nLng)) {
+            return res.status(400).json({ error: 'lat/lng required' });
+        }
         if (!KAKAO_REST_KEY) return res.status(500).json({ error: 'KAKAO_REST_KEY missing' });
 
         const url = 'https://dapi.kakao.com/v2/maps/staticmap';
         const params = {
-            center: `${lng},${lat}`,
+            center: `${nLng},${nLat}`,
             level: 5,
             w: 320,
             h: 200,
-            markers: `${lng},${lat}`,
+            markers: `${nLng},${nLat}`,
         };
 
         const mapRes = await axios.get(url, {
