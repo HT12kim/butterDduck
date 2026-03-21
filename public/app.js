@@ -601,7 +601,10 @@ function showInfoWindow(marker, item) {
         fetch(`/api/place-image?url=${encodeURIComponent(item.link)}`)
             .then((res) => res.json())
             .then((data) => {
-                if (data.imageUrl) imgEl.src = data.imageUrl;
+                if (!data || !data.imageUrl) return;
+                let src = data.imageUrl;
+                if (src.startsWith('//')) src = 'https:' + src;
+                imgEl.src = src;
             })
             .catch(() => {});
     }

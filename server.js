@@ -266,7 +266,10 @@ app.get('/api/place-image', async (req, res) => {
         });
         const match = data.match(/<img[^>]*class="[^"]*placeimg[^"]*"[^>]*src="([^"]+)"/i);
         if (!match || !match[1]) return res.json({ imageUrl: null });
-        res.json({ imageUrl: match[1] });
+        let imgUrl = match[1];
+        if (imgUrl.startsWith('//')) imgUrl = 'https:' + imgUrl;
+        else if (imgUrl.startsWith('/')) imgUrl = 'https://place.map.kakao.com' + imgUrl;
+        res.json({ imageUrl: imgUrl });
     } catch (e) {
         console.error('place-image error', e.message);
         res.json({ imageUrl: null });
