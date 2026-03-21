@@ -348,38 +348,31 @@ main {
     /* PNG 투명도 보장, 배경 없음 */
 }
 
-.like-badge {
+.like-chip {
     position: absolute;
-    top: -6px;
-    right: -6px;
+    left: 44px;
+    top: 8px;
     background: #e53935;
     color: white;
-    font-size: 11px;
-    font-weight: 800;
-    min-width: 20px;
-    height: 20px;
-    display: flex;
+    border: none;
+    border-radius: 999px;
+    padding: 6px 10px;
+    display: inline-flex;
     align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    border: 2px solid white;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-    box-sizing: border-box;
-    pointer-events: none;
-    animation: badge-pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    z-index: 10;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 800;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.18);
+    cursor: pointer;
+    transition: transform 0.15s ease;
+    z-index: 20;
 }
 
-@keyframes badge-pop {
-    0% {
-        transform: scale(0);
-    }
-    100% {
-        transform: scale(1);
-    }
+.like-chip:hover {
+    transform: translateX(2px) scale(1.03);
 }
 
-.like-badge.bump {
+.like-count.bump {
     animation: badge-bump 0.4s ease-out;
 }
 
@@ -388,11 +381,15 @@ main {
         transform: scale(1);
     }
     50% {
-        transform: scale(1.4);
+        transform: scale(1.25);
     }
     100% {
         transform: scale(1);
     }
+}
+
+.map-ad-overlay .kakao_ad_area {
+    display: block !important;
 }
 
 /* RESPONSIVE */

@@ -430,18 +430,8 @@ async function handleLike(storeKey, badgeEl, item) {
         const data = await res.json();
         const count = data.count ?? (Number(badgeEl?.innerText) || 0) + 1;
         storeLikes[storeKey] = count;
-
-        if (!badgeEl) {
-            const container = document.getElementById(`marker-${storeKey}`);
-            if (container) {
-                badgeEl = document.createElement('div');
-                badgeEl.className = 'like-badge';
-                container.appendChild(badgeEl);
-            }
-        }
         if (badgeEl) {
             badgeEl.innerText = count;
-            badgeEl.style.display = 'flex';
             badgeEl.classList.add('bump');
             setTimeout(() => badgeEl.classList.remove('bump'), 400);
         }
@@ -524,7 +514,9 @@ async function updateMarkers(items) {
         content.innerHTML = `
             <div class="custom-marker" id="marker-${storeKey}">
                 <img src="./image.png" class="marker-img" alt="marker">
-                <div class="like-badge" style="display:flex">${likeCount}</div>
+                <button class="like-chip" aria-label="좋아요" type="button">
+                    <span>❤️</span><span class="like-count">${likeCount}</span>
+                </button>
             </div>
         `;
 
@@ -550,10 +542,20 @@ async function updateMarkers(items) {
         }
 
         const markerEl = content.querySelector(`#marker-${storeKey}`);
-        markerEl.onclick = () => {
-            const badgeEl = markerEl.querySelector('.like-badge');
-            handleLike(storeKey, badgeEl, item);
+        const likeBtn = content.querySelector('.like-chip');
+
+        markerEl.onclick = (e) => {
+            if (e.target && e.target.closest && e.target.closest('.like-chip')) return;
+            showInfoWindow(overlay, item);
         };
+
+        if (likeBtn) {
+            likeBtn.onclick = (e) => {
+                e.stopPropagation();
+                const countEl = likeBtn.querySelector('.like-count');
+                handleLike(storeKey, countEl, item);
+            };
+        }
 
         newMarkers.push(overlay);
     });
@@ -569,15 +571,27 @@ async function updateMarkers(items) {
 // ============================================================
 function showInfoWindow(marker, item) {
     const cleanTitle = (item.title || '').replace(/<[^>]*>?/gm, '');
+    const address = item.roadAddress || item.address || '주소 정보 없음';
+    const phone = item.phone || '연락처 정보 없음';
+    const fallbackImg = 'https://butterdduck.netlify.app/image.png';
+    const imageUrl = item.imageUrl || item.thumbnail || fallbackImg;
+    const detailLink = item.link
+        ? `<a href="${item.link}" target="_blank" style="display:inline-block; margin-top:10px; font-size:12px; color:#ccac00; font-weight:700; text-decoration:none;">카카오 상세보기 →</a>`
+        : '';
+
     const content = `
-        <div style="padding:15px; min-width:200px; font-family: 'Noto Sans KR', sans-serif;">
-            <h4 style="margin:0 0 5px 0; color:#333;">${cleanTitle}</h4>
-            <p style="margin:0; font-size:12px; color:#666;">${item.roadAddress || item.address || ''}</p>
-            <a href="https://search.daum.net/search?w=tot&q=${encodeURIComponent(cleanTitle)}"
-               target="_blank"
-               style="display:inline-block; margin-top:8px; font-size:12px; color:#ccac00; text-decoration:none; font-weight:bold;">
-               상세보기 →
-            </a>
+        <div style="padding:14px; min-width:240px; max-width:320px; font-family: 'Noto Sans KR', sans-serif;">
+            <div style="display:flex; gap:12px; align-items:flex-start;">
+                <div style="width:72px; height:72px; border-radius:12px; overflow:hidden; background:#f6f6f6; flex-shrink:0;">
+                    <img src="${imageUrl}" alt="${cleanTitle}" onerror="this.src='${fallbackImg}'" style="width:100%; height:100%; object-fit:cover; display:block;">
+                </div>
+                <div style="flex:1; min-width:0;">
+                    <h4 style="margin:0 0 6px 0; color:#2b2b2b; font-size:15px;">${cleanTitle}</h4>
+                    <p style="margin:0 0 4px 0; font-size:12px; color:#555; line-height:1.4;">${address}</p>
+                    <p style="margin:0; font-size:12px; color:#777;">${phone}</p>
+                </div>
+            </div>
+            ${detailLink}
         </div>
     `;
     infoWindow.setContent(content);
