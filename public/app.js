@@ -1,6 +1,8 @@
 let map;
 let markers = [];
-let infoWindow;
+let infoOverlay = null;
+let infoContentEl = null;
+let searchQueued = false;
 let currentLat = 37.5665;
 let currentLng = 126.978;
 let storeLikes = {};
@@ -248,8 +250,6 @@ function initializeMap(lat, lng) {
         level: 4,
     });
 
-    infoWindow = new kakao.maps.InfoWindow({ zIndex: 3 });
-
     const myLocationContent = document.createElement('div');
     myLocationContent.innerHTML = `
         <div class="my-location-marker">
@@ -286,13 +286,26 @@ function initializeMap(lat, lng) {
         clearTimeout(idleTimer);
         idleTimer = setTimeout(() => searchPlaces(), 300);
     });
+
+    // 바깥 영역 클릭 시 정보 카드 닫기
+    document.addEventListener('click', (e) => {
+        if (!infoOverlay || !infoContentEl) return;
+        const target = e.target;
+        if (infoContentEl.contains(target)) return;
+        if (target && target.closest && target.closest('.custom-marker')) return;
+        closeInfoOverlay();
+    });
 }
 
 // ============================================================
 // 지도 화면 기반 검색
 // ============================================================
 async function searchPlaces() {
-    if (!map || isSearching) return;
+    if (!map) return;
+    if (isSearching) {
+        searchQueued = true;
+        return;
+    }
     isSearching = true;
 
     try {
@@ -317,8 +330,8 @@ async function searchPlaces() {
             fetch(`/api/stores-in-bounds?${params}`),
         ]);
 
-        const data = await searchRes.json();
-        const storeData = await storesRes.json();
+        const data = searchRes.ok ? await searchRes.json() : { items: [] };
+        const storeData = storesRes.ok ? await storesRes.json() : { items: [] };
 
         const kakaoItems = Array.isArray(data.items) ? data.items : [];
         const supaItems = Array.isArray(storeData.items) ? storeData.items : [];
@@ -344,6 +357,10 @@ async function searchPlaces() {
         console.error('Search error:', error);
     } finally {
         isSearching = false;
+        if (searchQueued) {
+            searchQueued = false;
+            searchPlaces();
+        }
     }
 }
 
@@ -564,6 +581,7 @@ async function updateMarkers(items) {
         const likeBtn = content.querySelector('.like-chip');
 
         markerEl.onclick = (e) => {
+            if (e.stopPropagation) e.stopPropagation();
             if (e.target && e.target.closest && e.target.closest('.like-chip')) return;
             showInfoWindow(overlay, item);
         };
@@ -588,11 +606,19 @@ async function updateMarkers(items) {
 // ============================================================
 // 정보 창
 // ============================================================
+function closeInfoOverlay() {
+    if (infoOverlay) infoOverlay.setMap(null);
+    infoOverlay = null;
+    infoContentEl = null;
+}
+
 function showInfoWindow(marker, item) {
     const cleanTitle = (item.title || '').replace(/<[^>]*>?/gm, '');
     const address = item.roadAddress || item.address || '주소 정보 없음';
     const phone = item.phone || '연락처 정보 없음';
     const kakaoLink = item.link || `https://map.kakao.com/link/search/${encodeURIComponent(cleanTitle)}`;
+    closeInfoOverlay();
+
     const wrapper = document.createElement('div');
     wrapper.className = 'info-card';
     wrapper.innerHTML = `
@@ -609,9 +635,15 @@ function showInfoWindow(marker, item) {
         </div>
     `;
 
-    infoWindow.setContent(wrapper);
-    infoWindow.setPosition(marker.getPosition());
-    infoWindow.open(map);
+    wrapper.addEventListener('click', (e) => e.stopPropagation());
+    infoContentEl = wrapper;
+    infoOverlay = new kakao.maps.CustomOverlay({
+        position: marker.getPosition(),
+        content: wrapper,
+        yAnchor: 1,
+        zIndex: 3,
+    });
+    infoOverlay.setMap(map);
 }
 
 // ============================================================
