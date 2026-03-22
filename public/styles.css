@@ -38,7 +38,7 @@ body {
     font-family: 'Outfit', 'Noto Sans KR', sans-serif;
     background: var(--bg-gradient);
     color: var(--text-main);
-    padding-top: 8px;
+    padding-top: 0;
     height: calc(100vh - 8px);
     overflow: hidden;
 }
@@ -50,11 +50,13 @@ body {
 }
 
 header {
+    position: sticky;
+    top: 0;
     background: var(--glass);
     backdrop-filter: blur(16px);
     border: 1px solid var(--glass-border);
     /* iOS notch 대응: safe-area-inset-top + 고정 여백으로 상단 카메라/센서 영역 확보 */
-    padding: calc(env(safe-area-inset-top, 0px) + 40px) 2rem 20px 2rem;
+    padding: calc(env(safe-area-inset-top, 0px) + 12px) 2rem 16px 2rem;
     z-index: 100;
     border-bottom: 1px solid rgba(255, 255, 255, 0.35);
     box-shadow: var(--glass-shadow);
@@ -581,7 +583,7 @@ main {
     }
 
     #list-toggle-btn {
-        bottom: calc(env(safe-area-inset-bottom, 0px) + 140px);
+        bottom: calc(env(safe-area-inset-bottom, 0px) + var(--ad-offset));
     }
 
     header {
