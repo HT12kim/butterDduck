@@ -16,6 +16,14 @@
     --shadow-strong: 0 12px 40px rgba(255, 217, 61, 0.2);
     --radius-lg: 24px;
     --radius-md: 16px;
+    --glass: rgba(255, 255, 255, 0.22);
+    --glass-strong: rgba(255, 255, 255, 0.3);
+    --glass-border: rgba(255, 255, 255, 0.45);
+    --glass-shadow: 0 18px 36px rgba(31, 35, 60, 0.16);
+    --bg-gradient:
+        radial-gradient(120% 80% at 10% 10%, rgba(255, 217, 61, 0.22), transparent 45%),
+        radial-gradient(120% 80% at 90% 0%, rgba(255, 139, 19, 0.18), transparent 50%),
+        linear-gradient(135deg, #fdf9ff 0%, #fffaf0 100%);
 }
 
 * {
@@ -27,7 +35,7 @@
 
 body {
     font-family: 'Outfit', 'Noto Sans KR', sans-serif;
-    background-color: var(--bg-color);
+    background: var(--bg-gradient);
     color: var(--text-main);
     padding-top: 8px;
     height: calc(100vh - 8px);
@@ -41,11 +49,14 @@ body {
 }
 
 header {
-    background: white;
+    background: var(--glass);
+    backdrop-filter: blur(16px);
+    border: 1px solid var(--glass-border);
     /* iOS notch 대응: safe-area-inset-top + 고정 여백으로 상단 카메라/센서 영역 확보 */
     padding: calc(env(safe-area-inset-top, 0px) + 40px) 2rem 20px 2rem;
     z-index: 100;
-    border-bottom: 2px solid var(--primary-soft);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.35);
+    box-shadow: var(--glass-shadow);
 }
 
 .header-content {
@@ -82,18 +93,19 @@ header {
 }
 
 .action-btn {
-    background: var(--primary);
-    color: black;
-    border: none;
-    padding: 0.5rem 1rem;
+    background: var(--glass-strong);
+    color: #1f1a00;
+    border: 1px solid var(--glass-border);
+    padding: 0.55rem 1.1rem;
     min-height: 42px;
     border-radius: 8px;
     font-weight: 600;
     cursor: pointer;
-    transition: background 0.2s;
+    transition: all 0.2s ease;
     display: flex;
     align-items: center;
     gap: 0.25rem;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
 }
 
 .kakao-icon {
@@ -103,7 +115,9 @@ header {
 }
 
 .action-btn:hover {
-    background: var(--primary-soft);
+    background: rgba(255, 217, 61, 0.35);
+    transform: translateY(-1px);
+    box-shadow: 0 14px 28px rgba(0, 0, 0, 0.12);
 }
 
 main {
@@ -116,7 +130,7 @@ main {
 #map-container {
     flex: 1;
     position: relative;
-    background: #f0f0f0;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0.6));
 }
 
 #map {
@@ -126,17 +140,19 @@ main {
 
 #info-panel {
     width: 400px;
-    background: white;
+    background: var(--glass);
+    backdrop-filter: blur(14px);
     display: flex;
     flex-direction: column;
     z-index: 10;
-    box-shadow: -10px 0 30px rgba(0, 0, 0, 0.03);
+    box-shadow: -10px 0 30px rgba(0, 0, 0, 0.08);
+    border-left: 1px solid var(--glass-border);
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .panel-header {
     padding: 1.5rem;
-    background: white;
+    background: transparent;
 }
 
 .panel-title {
@@ -166,20 +182,21 @@ main {
 }
 
 .place-item {
-    background: var(--card-bg);
-    border-radius: var(--radius-md);
+    background: rgba(255, 255, 255, 0.32);
+    backdrop-filter: blur(14px);
+    border-radius: 18px;
     padding: 1.25rem;
     margin-bottom: 1rem;
-    border: 2px solid transparent;
-    box-shadow: var(--shadow-soft);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
     transition: all 0.2s ease;
     cursor: pointer;
 }
 
 .place-item:hover {
     transform: translateY(-4px);
-    box-shadow: var(--shadow-strong);
-    border-color: var(--primary-soft);
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.14);
+    border-color: rgba(255, 217, 61, 0.55);
 }
 
 .place-item .category {
@@ -217,19 +234,20 @@ main {
     bottom: calc(env(safe-area-inset-bottom, 0px) + 140px);
     left: 50%;
     transform: translateX(-50%);
-    background: white;
-    border: none;
+    background: rgba(255, 255, 255, 0.32);
+    border: 1px solid var(--glass-border);
     padding: 0.8rem 1.5rem;
     border-radius: 30px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    box-shadow: var(--glass-shadow);
     font-family: inherit;
-    font-weight: 600;
+    font-weight: 700;
     display: flex;
     align-items: center;
     gap: 0.5rem;
     z-index: 2000;
     cursor: pointer;
-    transition: all 0.2s active;
+    transition: all 0.2s ease;
+    backdrop-filter: blur(14px);
 }
 
 #list-toggle-btn:active {
@@ -247,10 +265,10 @@ main {
     right: 20px;
     width: 64px;
     height: 64px;
-    background: white;
-    border: none;
-    border-radius: 16px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    background: rgba(255, 255, 255, 0.3);
+    border: 1px solid var(--glass-border);
+    border-radius: 18px;
+    box-shadow: var(--glass-shadow);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -286,8 +304,8 @@ main {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(255, 255, 255, 0.7);
-    backdrop-filter: blur(10px);
+    background: rgba(255, 255, 255, 0.45);
+    backdrop-filter: blur(16px);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -396,13 +414,14 @@ main {
 .info-card {
     width: 280px;
     max-width: 320px;
-    background: linear-gradient(135deg, #fffdf4, #fff7d6);
-    border: 2px solid #ffe4a3;
+    background: rgba(255, 255, 255, 0.32);
+    border: 1px solid var(--glass-border);
     border-radius: 18px;
     padding: 14px;
-    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.08);
+    box-shadow: var(--glass-shadow);
     font-family: 'Noto Sans KR', sans-serif;
     color: #2b2b2b;
+    backdrop-filter: blur(12px);
 }
 
 .info-card-header {
@@ -458,8 +477,8 @@ main {
 
 .info-link {
     flex: 1;
-    background: #fff;
-    border: 1px solid #ffe08a;
+    background: rgba(255, 255, 255, 0.4);
+    border: 1px solid var(--glass-border);
     color: #c26d00;
     text-decoration: none;
     font-size: 12px;
@@ -467,7 +486,7 @@ main {
     padding: 10px 12px;
     border-radius: 12px;
     text-align: center;
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.05);
+    box-shadow: var(--glass-shadow);
     transition:
         transform 0.15s ease,
         box-shadow 0.15s ease;
