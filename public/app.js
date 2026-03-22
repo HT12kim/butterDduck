@@ -347,8 +347,18 @@ async function searchPlaces() {
 
         if (deduped.length) {
             await fetchLikes();
-            displayPlaces(deduped);
-            await updateMarkers(deduped);
+            const withLikes = deduped.map((item) => ({
+                ...item,
+                likeCount: storeLikes[getStoreKey(item)] ?? 0,
+            }));
+            withLikes.sort((a, b) => {
+                const diff = (b.likeCount || 0) - (a.likeCount || 0);
+                if (diff !== 0) return diff;
+                if (a.distanceKm != null && b.distanceKm != null) return a.distanceKm - b.distanceKm;
+                return 0;
+            });
+            displayPlaces(withLikes);
+            await updateMarkers(withLikes);
         } else {
             displayPlaces([]);
             await updateMarkers([]);
@@ -405,6 +415,7 @@ function displayPlaces(items) {
             <span class="category">${item.category || ''}</span>
             <h3>${(item.title || '').replace(/<[^>]*>?/gm, '')}</h3>
             <p class="address">${item.roadAddress || item.address || ''}</p>
+            <p class="likes">❤️ ${item.likeCount ?? 0}</p>
             ${dist ? `<p class="distance">📍 ${dist}</p>` : ''}
         `;
         div.onclick = () => {
