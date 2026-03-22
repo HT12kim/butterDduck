@@ -16,27 +16,6 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 const stripHtml = (text) => (text || '').replace(/<[^>]*>?/gm, '');
 
-// Naver geocode helper for address-to-coordinates lookup
-async function getGeocoding(address) {
-    if (!address) return null;
-    try {
-        const response = await axios.get('https://naveropenapi.apigw.ntruss.com/map-geocode/v2/geocode', {
-            params: { query: address },
-            headers: {
-                'X-NCP-APIGW-API-KEY-ID': process.env.NCP_CLIENT_ID,
-                'X-NCP-APIGW-API-KEY': process.env.NCP_CLIENT_SECRET,
-            },
-        });
-        if (response.data.addresses && response.data.addresses.length > 0) {
-            const addr = response.data.addresses[0];
-            return { lat: parseFloat(addr.y), lng: parseFloat(addr.x) };
-        }
-    } catch (error) {
-        console.error(`Geocoding failed for ${address}:`, error.message);
-    }
-    return null;
-}
-
 // Kakao Local API search helper
 async function kakaoKeywordSearch({ query, rect, x, y, page }) {
     if (!KAKAO_REST_KEY) throw new Error('KAKAO_REST_KEY missing');
@@ -248,65 +227,6 @@ app.post('/api/likes', async (req, res) => {
 });
 
 // 카카오 place_url 페이지에서 대표 이미지(placeimg) 추출 프록시
-app.get('/api/place-image', async (req, res) => {
-    try {
-        const { url } = req.query;
-        if (!url || !/^https?:\/\//.test(url)) return res.status(400).json({ error: 'invalid url' });
-        if (!/kakao\.com/.test(url)) return res.status(400).json({ error: 'unsupported domain' });
-
-        const { data } = await axios.get(url, {
-            headers: {
-                'User-Agent':
-                    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36',
-            },
-        });
-        const match = data.match(/<img[^>]*class="[^"]*placeimg[^"]*"[^>]*src="([^"]+)"/i);
-        if (!match || !match[1]) return res.json({ imageUrl: null });
-        let imgUrl = match[1];
-        if (imgUrl.startsWith('//')) imgUrl = 'https:' + imgUrl;
-        else if (imgUrl.startsWith('/')) imgUrl = 'https://place.map.kakao.com' + imgUrl;
-        res.json({ imageUrl: imgUrl });
-    } catch (e) {
-        console.error('place-image error', e.message);
-        res.json({ imageUrl: null });
-    }
-});
-
-// 카카오 Static Map 썸네일 프록시 (REST 키 보호)
-app.get('/api/static-thumb', async (req, res) => {
-    try {
-        const { lat, lng } = req.query;
-        const nLat = parseFloat(lat);
-        const nLng = parseFloat(lng);
-        if (!Number.isFinite(nLat) || !Number.isFinite(nLng)) {
-            return res.status(400).json({ error: 'lat/lng required' });
-        }
-        if (!KAKAO_REST_KEY) return res.status(500).json({ error: 'KAKAO_REST_KEY missing' });
-
-        const url = 'https://dapi.kakao.com/v2/maps/staticmap';
-        const params = {
-            center: `${nLng},${nLat}`,
-            level: 5,
-            w: 320,
-            h: 200,
-            markers: `${nLng},${nLat}`,
-        };
-
-        const mapRes = await axios.get(url, {
-            params,
-            responseType: 'arraybuffer',
-            headers: { Authorization: `KakaoAK ${KAKAO_REST_KEY}` },
-        });
-
-        res.set('Content-Type', 'image/png');
-        res.set('Cache-Control', 'public, max-age=3600');
-        res.send(mapRes.data);
-    } catch (e) {
-        console.error('static-thumb error', e.message);
-        res.status(500).json({ error: 'failed to load static map' });
-    }
-});
-
 // ============================================================
 // Config
 // ============================================================

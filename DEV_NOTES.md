@@ -16,7 +16,6 @@ public/
   styles.css      # 글래스모피즘 테마, 버튼/목록/카드 스타일
 server.js         # Express API (개발/로컬)
 netlify/functions/server.js # Netlify serverless API (배포)
-likes.json        # 사용하지 않음 (과거 잔여)
 netlify.toml      # 함수 경로 설정
 ```
 
