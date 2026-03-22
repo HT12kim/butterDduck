@@ -412,11 +412,17 @@ function displayPlaces(items) {
         const div = document.createElement('div');
         div.className = 'place-item';
         div.innerHTML = `
-            <span class="category">${item.category || ''}</span>
-            <h3>${(item.title || '').replace(/<[^>]*>?/gm, '')}</h3>
-            <p class="address">${item.roadAddress || item.address || ''}</p>
-            <p class="likes">❤️ ${item.likeCount ?? 0}</p>
-            ${dist ? `<p class="distance">📍 ${dist}</p>` : ''}
+            <div class="place-main">
+                <div class="place-top-row">
+                    <span class="category">${item.category || ''}</span>
+                    <h3>${(item.title || '').replace(/<[^>]*>?/gm, '')}</h3>
+                </div>
+                <div class="place-meta-row">
+                    <span class="address">${item.roadAddress || item.address || ''}</span>
+                    <span class="likes">❤️ ${item.likeCount ?? 0}</span>
+                    ${dist ? `<span class="distance">📍 ${dist}</span>` : ''}
+                </div>
+            </div>
         `;
         div.onclick = () => {
             if (!map) return;
