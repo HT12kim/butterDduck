@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 Disallow: /api/config
-Sitemap: /sitemap.xml
+Sitemap: https://butterdduck.netlify.app/sitemap.xml
