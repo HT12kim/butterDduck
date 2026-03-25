@@ -566,7 +566,7 @@ async function updateMarkers(items) {
         const content = document.createElement('div');
         content.innerHTML = `
             <div class="custom-marker" id="marker-${storeKey}">
-                <img src="./image.png" class="marker-img" alt="marker">
+                <img src="./butter_dduck.png" class="marker-img" alt="marker">
                 <button class="like-chip" aria-label="좋아요" type="button">
                     <span>❤️</span><span class="like-count">${likeCount}</span>
                 </button>

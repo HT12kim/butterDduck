@@ -5,7 +5,7 @@
 - 프런트엔드: Kakao Maps JS SDK, Kakao Link SDK, 순수 JS/HTML/CSS
 - 백엔드: Express 서버 + Netlify Functions (동일 로직 이중화)
 - 데이터: Supabase (likes, stores), 로컬 JSON 없음
-- 기타: Axios(FE/BE), Geolocation API, Naver Geocode (address→coord), AdFit 배너
+- 기타: Axios(FE/BE), Geolocation API, AdFit 배너
 
 ## 앱 구조
 
