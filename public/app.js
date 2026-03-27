@@ -11,6 +11,15 @@ let lastResultCount = 0;
 let currentRegionName = '내 주변';
 let lastRegionLookupKey = '';
 
+function escapeHtml(str) {
+    return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 // ============================================================
 // 모바일 UI 초기화
 // ============================================================
@@ -409,16 +418,19 @@ function displayPlaces(items) {
                     ? (item.distanceKm * 1000).toFixed(0) + 'm'
                     : item.distanceKm.toFixed(2) + 'km'
                 : '';
+        const safeCategory = escapeHtml(item.category || '');
+        const safeTitle = escapeHtml((item.title || '').replace(/<[^>]*>?/gm, ''));
+        const safeAddress = escapeHtml(item.roadAddress || item.address || '');
         const div = document.createElement('div');
         div.className = 'place-item';
         div.innerHTML = `
             <div class="place-main">
                 <div class="place-top-row">
-                    <span class="category">${item.category || ''}</span>
-                    <h3>${(item.title || '').replace(/<[^>]*>?/gm, '')}</h3>
+                    <span class="category">${safeCategory}</span>
+                    <h3>${safeTitle}</h3>
                 </div>
                 <div class="place-meta-row">
-                    <span class="address">${item.roadAddress || item.address || ''}</span>
+                    <span class="address">${safeAddress}</span>
                     <span class="likes">❤️ ${item.likeCount ?? 0}</span>
                     ${dist ? `<span class="distance">📍 ${dist}</span>` : ''}
                 </div>
@@ -562,6 +574,7 @@ async function updateMarkers(items) {
     items.forEach((item) => {
         const storeKey = getStoreKey(item);
         const likeCount = storeLikes[storeKey] ?? 0;
+        const safeTitle = escapeHtml(item.title || '');
 
         const content = document.createElement('div');
         content.innerHTML = `
@@ -631,9 +644,19 @@ function closeInfoOverlay() {
 
 function showInfoWindow(marker, item) {
     const cleanTitle = (item.title || '').replace(/<[^>]*>?/gm, '');
+    const safeTitle = escapeHtml(cleanTitle);
     const address = item.roadAddress || item.address || '주소 정보 없음';
     const phone = item.phone || '연락처 정보 없음';
-    const kakaoLink = item.link || `https://map.kakao.com/link/search/${encodeURIComponent(cleanTitle)}`;
+    const safeAddress = escapeHtml(address);
+    const safePhone = escapeHtml(phone);
+    let kakaoLink = item.link || `https://map.kakao.com/link/search/${encodeURIComponent(cleanTitle)}`;
+    try {
+        const parsed = new URL(kakaoLink, 'https://map.kakao.com');
+        if (parsed.protocol === 'javascript:') throw new Error('invalid protocol');
+        kakaoLink = parsed.href;
+    } catch (_) {
+        kakaoLink = `https://map.kakao.com/link/search/${encodeURIComponent(cleanTitle)}`;
+    }
     closeInfoOverlay();
 
     const wrapper = document.createElement('div');
@@ -643,9 +666,9 @@ function showInfoWindow(marker, item) {
             <span class="info-badge">🧈 버터 스팟</span>
             <span class="info-status">지금 떠나볼까요?</span>
         </div>
-        <div class="info-card-title" title="${cleanTitle}">${cleanTitle}</div>
-        <div class="info-card-line" title="${address}">📍 ${address}</div>
-        <div class="info-card-line" title="${phone}">📞 ${phone}</div>
+        <div class="info-card-title" title="${safeTitle}">${safeTitle}</div>
+        <div class="info-card-line" title="${safeAddress}">📍 ${safeAddress}</div>
+        <div class="info-card-line" title="${safePhone}">📞 ${safePhone}</div>
         <div class="info-card-actions">
             <a class="info-link" href="${kakaoLink}" target="_blank" rel="noopener">카카오 상세보기</a>
             <button class="info-cta" type="button" onclick="window.open('${kakaoLink}','_blank')">길찾기</button>
@@ -716,9 +739,9 @@ function showAddStoreModal() {
                     (item, idx) => `
                 <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-bottom:1px solid #eee; gap:10px;">
                     <div style="flex:1; min-width:0;">
-                        <div style="font-weight:600; color:#222; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${item.title}</div>
-                        <div style="font-size:12px; color:#666; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${item.address}</div>
-                        <div style="font-size:11px; color:#888;">${item.category || ''}</div>
+                        <div style="font-weight:600; color:#222; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(item.title)}</div>
+                        <div style="font-size:12px; color:#666; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(item.address)}</div>
+                        <div style="font-size:11px; color:#888;">${escapeHtml(item.category || '')}</div>
                     </div>
                     <button data-idx="${idx}" style="background:#FFD93D; color:black; border:none; border-radius:5px; padding:7px 14px; font-weight:600; cursor:pointer; flex-shrink:0;">등록</button>
                 </div>

@@ -20,6 +20,10 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
 const stripHtml = (text) => (text || '').replace(/<[^>]*>?/gm, '');
+const sanitizeText = (text, maxLen = 300) => {
+    const cleaned = stripHtml(String(text || ''));
+    return cleaned.slice(0, maxLen);
+};
 
 // Kakao Local API 검색 공통 호출
 async function kakaoKeywordSearch({ query, rect, x, y, page }) {
@@ -182,6 +186,9 @@ app.post('/api/likes', async (req, res) => {
         const { storeKey, title, address, lat, lng } = req.body;
         if (!storeKey) return res.status(400).json({ error: 'storeKey required' });
 
+        const cleanTitle = sanitizeText(title, 120) || '버터떡 매장';
+        const cleanAddress = sanitizeText(address, 200);
+
         const { data: existing, error: fetchErr } = await supabase
             .from('likes')
             .select('*')
@@ -198,24 +205,29 @@ app.post('/api/likes', async (req, res) => {
             await supabase.from('likes').insert([{ store_key: storeKey, count: 1 }]);
         }
 
-        const cleanTitle = stripHtml(title) || '버터떡 매장';
         const numericLat = lat != null ? parseFloat(lat) : null;
         const numericLng = lng != null ? parseFloat(lng) : null;
         const hasCoords = Number.isFinite(numericLat) && Number.isFinite(numericLng);
 
-        if (address && hasCoords) {
+        if (cleanAddress && hasCoords) {
             try {
                 const { data: existingStore, error: storeFetchErr } = await supabase
                     .from('stores')
                     .select('id')
-                    .eq('address', address)
+                    .eq('address', cleanAddress)
                     .maybeSingle();
 
                 if (!storeFetchErr) {
                     if (!existingStore) {
-                        await supabase
-                            .from('stores')
-                            .insert([{ name: cleanTitle, address, lat: numericLat, lng: numericLng, likes: newCount }]);
+                        await supabase.from('stores').insert([
+                            {
+                                name: cleanTitle,
+                                address: cleanAddress,
+                                lat: numericLat,
+                                lng: numericLng,
+                                likes: newCount,
+                            },
+                        ]);
                     } else {
                         await supabase.from('stores').update({ likes: newCount }).eq('id', existingStore.id);
                     }
@@ -301,15 +313,25 @@ app.get('/api/stores-in-bounds', async (req, res) => {
 // ============================================================
 app.post('/api/add-store', async (req, res) => {
     const { name, address, lat, lng } = req.body;
-    if (!name || !address || !lat || !lng) {
+    const cleanName = sanitizeText(name, 120);
+    const cleanAddress = sanitizeText(address, 200);
+
+    if (!cleanName || !cleanAddress || !lat || !lng) {
         return res.status(400).json({ error: '가게 이름, 주소, 좌표가 필요합니다.' });
     }
     try {
-        const { data: exists } = await supabase.from('stores').select('id').eq('address', address);
+        const { data: exists } = await supabase.from('stores').select('id').eq('address', cleanAddress);
         if (exists && exists.length > 0) {
             return res.status(409).json({ error: '이미 등록된 가게입니다.' });
         }
-        const { data, error } = await supabase.from('stores').insert([{ name, address, lat, lng }]);
+        const numericLat = parseFloat(lat);
+        const numericLng = parseFloat(lng);
+        const coordsValid = Number.isFinite(numericLat) && Number.isFinite(numericLng);
+        if (!coordsValid) return res.status(400).json({ error: '좌표 형식이 올바르지 않습니다.' });
+
+        const { data, error } = await supabase
+            .from('stores')
+            .insert([{ name: cleanName, address: cleanAddress, lat: numericLat, lng: numericLng }]);
         if (error) return res.status(500).json({ error: 'DB 저장 실패' });
         res.json({ success: true, store: data ? data[0] : null });
     } catch (error) {
